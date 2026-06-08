@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
+import { logout } from '../../lib/auth'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import {
   LayoutDashboard,
   Package,
@@ -29,6 +31,7 @@ const navItems = [
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false)
+  const [confirmLogout, setConfirmLogout] = useState(false)
   const location = useLocation()
 
   return (
@@ -76,11 +79,26 @@ export default function Sidebar() {
       </nav>
 
       <div className="sidebar__footer">
-        <button className="sidebar__link sidebar__logout" title="Çıkış Yap">
+        <button
+          className="sidebar__link sidebar__logout"
+          title="Çıkış Yap"
+          onClick={() => setConfirmLogout(true)}
+        >
           <LogOut size={20} />
           {!collapsed && <span>Çıkış Yap</span>}
         </button>
       </div>
+
+      {confirmLogout && (
+        <ConfirmDialog
+          title="Çıkış Yap"
+          message="Oturumu kapatmak istediğinize emin misiniz?"
+          confirmLabel="Çıkış Yap"
+          danger
+          onConfirm={() => logout()}
+          onCancel={() => setConfirmLogout(false)}
+        />
+      )}
     </aside>
   )
 }

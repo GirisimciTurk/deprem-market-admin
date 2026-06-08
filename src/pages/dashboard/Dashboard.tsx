@@ -127,7 +127,7 @@ export default function Dashboard() {
                   <YAxis stroke="#6b7394" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `₺${v / 1000}k`} />
                   <Tooltip
                     contentStyle={{ background: '#1e2235', border: '1px solid #2a2f4a', borderRadius: '8px', fontSize: '13px' }}
-                    formatter={(value: number) => [`₺${value.toLocaleString()}`, 'Gelir']}
+                    formatter={(value) => [`₺${Number(value).toLocaleString()}`, 'Gelir']}
                   />
                   <Area type="monotone" dataKey="value" stroke="#6366f1" strokeWidth={2.5} fill="url(#colorRevenue)" />
                 </AreaChart>
@@ -147,7 +147,7 @@ export default function Dashboard() {
                   <YAxis stroke="#6b7394" fontSize={12} tickLine={false} axisLine={false} />
                   <Tooltip
                     contentStyle={{ background: '#1e2235', border: '1px solid #2a2f4a', borderRadius: '8px', fontSize: '13px' }}
-                    formatter={(value: number) => [value, 'Sipariş']}
+                    formatter={(value) => [Number(value), 'Sipariş']}
                   />
                   <Bar dataKey="orders" fill="#6366f1" radius={[4, 4, 0, 0]} />
                 </BarChart>
