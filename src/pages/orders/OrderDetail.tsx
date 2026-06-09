@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { PackageCheck, Truck, XCircle } from 'lucide-react'
+import { PackageCheck, Truck, XCircle, RotateCcw } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
 import { Spinner } from '../../components/ui/Spinner'
 import type { Order } from '../../lib/types'
 import { orderStatus, paymentStatus, fulfillmentStatus } from '../../lib/statusLabels'
-import { formatMoney, formatDate } from '../../lib/format'
+import { formatMoney, formatDate, toMinor } from '../../lib/format'
 
 interface Props {
   order: Order
@@ -14,18 +14,25 @@ interface Props {
   onClose: () => void
   onCancel: () => void
   onFulfill: () => void
-  onShip: () => void
+  onShip: (trackingNumber?: string) => void
+  onDeliver: () => void
+  onRefund: (amountMinor?: number) => void
 }
 
-type PendingAction = 'cancel' | 'fulfill' | 'ship' | null
+type PendingAction = 'cancel' | 'fulfill' | 'ship' | 'deliver' | 'refund' | null
 
-export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill, onShip }: Props) {
+export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill, onShip, onDeliver, onRefund }: Props) {
   const [pending, setPending] = useState<PendingAction>(null)
+  const [trackingNumber, setTrackingNumber] = useState('')
+  const [refundAmount, setRefundAmount] = useState('')
 
   const addr = order.shipping_address
   const isCanceled = order.status === 'canceled'
+  const isDelivered = order.fulfillment_status === 'delivered'
   const isShipped = order.fulfillment_status === 'shipped' || order.fulfillment_status === 'delivered'
   const isFulfilled = !!order.fulfillment_status && order.fulfillment_status !== 'not_fulfilled'
+  // Para iadesi: ödeme alınmış (authorized/captured/partially_refunded) ve henüz tam iade edilmemişse.
+  const isRefundable = ['authorized', 'captured', 'partially_refunded'].includes(order.payment_status || '')
 
   const confirmConfig = {
     cancel: {
@@ -44,10 +51,27 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
     },
     ship: {
       title: 'Kargoya Ver',
-      message: `#${order.display_id} numaralı sipariş kargoya verilmiş olarak işaretlenecek. Onaylıyor musunuz?`,
+      message: `#${order.display_id} numaralı sipariş kargoya verilmiş olarak işaretlenecek. Aras Kargo takip numarasını girerseniz müşteriye takip linkiyle birlikte e-posta gider.`,
       confirmLabel: 'Kargoya Ver',
       danger: false,
-      run: onShip,
+      run: () => onShip(trackingNumber.trim() || undefined),
+    },
+    deliver: {
+      title: 'Teslim Edildi Olarak İşaretle',
+      message: `#${order.display_id} numaralı sipariş teslim edildi olarak işaretlenecek ve müşteriye "Teslim Edildi" e-postası gönderilecek. Onaylıyor musunuz?`,
+      confirmLabel: 'Teslim Edildi',
+      danger: false,
+      run: onDeliver,
+    },
+    refund: {
+      title: 'Para İadesi Yap',
+      message: `#${order.display_id} için iade tutarını girin. Boş bırakırsanız iade edilebilir tutarın tamamı iade edilir. (Ödeme tahsil edilmemişse önce otomatik tahsil edilir.)`,
+      confirmLabel: 'İadeyi Onayla',
+      danger: true,
+      run: () => {
+        const tl = parseFloat(refundAmount.replace(',', '.'))
+        onRefund(refundAmount.trim() && !Number.isNaN(tl) && tl > 0 ? toMinor(tl) : undefined)
+      },
     },
   }
 
@@ -69,6 +93,16 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
             {!isCanceled && isFulfilled && !isShipped && (
               <button className="btn btn--primary" disabled={busy} onClick={() => setPending('ship')}>
                 {busy ? <Spinner size={14} /> : <Truck size={15} />} Kargoya Ver
+              </button>
+            )}
+            {!isCanceled && isShipped && !isDelivered && (
+              <button className="btn btn--primary" disabled={busy} onClick={() => setPending('deliver')}>
+                {busy ? <Spinner size={14} /> : <PackageCheck size={15} />} Teslim Edildi
+              </button>
+            )}
+            {isRefundable && (
+              <button className="btn btn--secondary" disabled={busy} onClick={() => setPending('refund')}>
+                {busy ? <Spinner size={14} /> : <RotateCcw size={15} />} Para İadesi
               </button>
             )}
             {!isCanceled && (
@@ -157,8 +191,59 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
             active.run()
             setPending(null)
           }}
-          onCancel={() => setPending(null)}
-        />
+          onCancel={() => {
+            setPending(null)
+            setTrackingNumber('')
+            setRefundAmount('')
+          }}
+        >
+          {pending === 'ship' && (
+            <div style={{ marginTop: 14 }}>
+              <label
+                htmlFor="tracking-number"
+                style={{
+                  display: 'block',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-tertiary)',
+                  marginBottom: 6,
+                }}
+              >
+                Aras Kargo Takip Numarası (opsiyonel)
+              </label>
+              <input
+                id="tracking-number"
+                type="text"
+                value={trackingNumber}
+                onChange={(e) => setTrackingNumber(e.target.value)}
+                placeholder="Örn: 1234567890123"
+                disabled={busy}
+                style={{ width: '100%' }}
+              />
+              <p className="muted" style={{ fontSize: '0.75rem', marginTop: 6 }}>
+                Boş bırakırsanız sipariş kargoya verildi olarak işaretlenir; takip numarasını
+                sonra da girebilirsiniz.
+              </p>
+            </div>
+          )}
+          {pending === 'refund' && (
+            <div style={{ marginTop: 14 }}>
+              <label htmlFor="refund-amount" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: 6 }}>
+                İade Tutarı (₺) — boş = tamamı
+              </label>
+              <input
+                id="refund-amount"
+                type="number"
+                min="0"
+                step="0.01"
+                value={refundAmount}
+                onChange={(e) => setRefundAmount(e.target.value)}
+                placeholder={order.total != null ? (order.total / 100).toFixed(2) : 'Tutar'}
+                disabled={busy}
+                style={{ width: '100%' }}
+              />
+            </div>
+          )}
+        </ConfirmDialog>
       )}
     </Modal>
   )

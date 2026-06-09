@@ -33,6 +33,7 @@ export interface OrderItem {
 
 export interface Fulfillment {
   id: string
+  provider_id?: string | null
   shipped_at?: string | null
   delivered_at?: string | null
   canceled_at?: string | null
@@ -76,6 +77,8 @@ export interface Product {
   thumbnail?: string | null
   created_at?: string
   variants?: ProductVariant[]
+  description?: string | null
+  weight?: number | null
 }
 
 export interface InventoryLevel {
@@ -95,3 +98,14 @@ export interface StockLocation {
   id: string
   name: string
 }
+
+export interface Customer {
+  id: string
+  email: string
+  first_name?: string | null
+  last_name?: string | null
+  phone?: string | null
+  created_at?: string
+  orders?: Order[]
+}
+

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import type { ReactNode } from 'react'
-import { CheckCircle2, AlertCircle, Info } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Info, AlertTriangle } from 'lucide-react'
 import { ToastContext, type ToastType } from './toast-context'
 import './ui.css'
 
@@ -32,6 +32,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {t.type === 'success' && <CheckCircle2 size={16} style={{ color: 'var(--accent-success)' }} />}
             {t.type === 'error' && <AlertCircle size={16} style={{ color: 'var(--accent-danger)' }} />}
             {t.type === 'info' && <Info size={16} style={{ color: 'var(--accent-info)' }} />}
+            {t.type === 'warning' && <AlertTriangle size={16} style={{ color: 'var(--accent-warning, #f59e0b)' }} />}
             <span>{t.message}</span>
           </div>
         ))}

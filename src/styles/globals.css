@@ -1,38 +1,38 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-primary: #0f111a;
-  --bg-secondary: #1a1d2e;
-  --bg-tertiary: #232740;
-  --bg-card: #1e2235;
-  --bg-card-hover: #252a42;
-  --bg-input: #171a2a;
+  --bg-primary: #f1f5f9;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f8fafc;
+  --bg-card: #ffffff;
+  --bg-card-hover: #f8fafc;
+  --bg-input: #ffffff;
 
-  --border-primary: #2a2f4a;
-  --border-secondary: #343a5c;
-  --border-accent: #4f46e5;
+  --border-primary: #e2e8f0;
+  --border-secondary: #cbd5e1;
+  --border-accent: #6366f1;
 
-  --text-primary: #e8eaf0;
-  --text-secondary: #9ca3b8;
-  --text-tertiary: #6b7394;
-  --text-inverse: #0f111a;
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-tertiary: #64748b;
+  --text-inverse: #ffffff;
 
-  --accent-primary: #6366f1;
-  --accent-primary-hover: #5558e6;
-  --accent-primary-light: rgba(99, 102, 241, 0.12);
+  --accent-primary: #4f46e5;
+  --accent-primary-hover: #4338ca;
+  --accent-primary-light: rgba(79, 70, 229, 0.08);
   --accent-success: #10b981;
-  --accent-success-light: rgba(16, 185, 129, 0.12);
-  --accent-warning: #f59e0b;
-  --accent-warning-light: rgba(245, 158, 11, 0.12);
-  --accent-danger: #ef4444;
-  --accent-danger-light: rgba(239, 68, 68, 0.12);
-  --accent-info: #3b82f6;
-  --accent-info-light: rgba(59, 130, 246, 0.12);
+  --accent-success-light: rgba(16, 185, 129, 0.08);
+  --accent-warning: #d97706;
+  --accent-warning-light: rgba(217, 119, 6, 0.08);
+  --accent-danger: #dc2626;
+  --accent-danger-light: rgba(220, 38, 38, 0.08);
+  --accent-info: #2563eb;
+  --accent-info-light: rgba(37, 99, 235, 0.08);
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 15px rgba(79, 70, 229, 0.12);
 
   --radius-sm: 6px;
   --radius-md: 10px;
@@ -313,3 +313,70 @@ tbody tr:hover {
   animation: pulse 1.5s ease infinite;
   border-radius: var(--radius-sm);
 }
+
+/* Status Toggle Switch */
+.status-toggle-btn {
+  position: relative;
+  width: 38px;
+  height: 20px;
+  background: var(--border-secondary);
+  border-radius: 20px;
+  transition: background var(--transition-fast);
+  padding: 0;
+  display: flex;
+  align-items: center;
+  outline: none;
+}
+
+.status-toggle-btn--active {
+  background: var(--accent-success);
+}
+
+.status-toggle-slider {
+  position: absolute;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform var(--transition-fast);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+
+.status-toggle-btn--active .status-toggle-slider {
+  transform: translateX(18px);
+}
+
+/* Tab Navigation */
+.tabs-navigation {
+  display: flex;
+  border-bottom: 1px solid var(--border-primary);
+  margin-bottom: 20px;
+  gap: 20px;
+}
+
+.tabs-navigation__btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  padding: 10px 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tabs-navigation__btn:hover {
+  color: var(--text-primary);
+}
+
+.tabs-navigation__btn.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  font-weight: 600;
+}
+

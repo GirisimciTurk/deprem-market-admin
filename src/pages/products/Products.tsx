@@ -1,21 +1,22 @@
 import { useState } from 'react'
-import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import { Package, Search, Pencil } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { Package, Search, Pencil, AlertTriangle } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
 import { LoadingState } from '../../components/ui/Spinner'
 import { EmptyState, ErrorState } from '../../components/ui/StateBox'
+import { useToast } from '../../components/ui/toast-context'
 import { useDebounce } from '../../lib/useDebounce'
 import { api } from '../../lib/api'
 import type { Product, ProductVariant } from '../../lib/types'
 import { productStatus } from '../../lib/statusLabels'
 import { formatMoney } from '../../lib/format'
-import ProductEdit from './ProductEdit'
 
 const LIMIT = 20
 const PRODUCT_FIELDS =
-  'id,title,handle,status,thumbnail,created_at,*variants,*variants.prices,variants.inventory_quantity,variants.manage_inventory'
+  'id,title,handle,status,thumbnail,created_at,metadata,*variants,*variants.prices,*variants.manage_inventory,*variants.inventory_items,*variants.inventory_items.inventory,*variants.inventory_items.inventory.location_levels'
 
 interface ProductsResponse {
   products: Product[]
@@ -43,13 +44,20 @@ function priceRange(product: Product): string {
 function totalStock(product: Product): number | null {
   const tracked = (product.variants ?? []).filter((v) => v.manage_inventory)
   if (tracked.length === 0) return null
-  return tracked.reduce((sum, v) => sum + (v.inventory_quantity ?? 0), 0)
+  return tracked.reduce((sum, v) => {
+    const link = (v as any).inventory_items?.[0]
+    const levels = link?.inventory?.location_levels ?? []
+    const stock = levels.reduce((s: number, l: any) => s + (l.stocked_quantity ?? 0), 0)
+    return sum + stock
+  }, 0)
 }
 
 export default function Products() {
+  const queryClient = useQueryClient()
+  const { notify } = useToast()
+  const navigate = useNavigate()
   const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
-  const [editing, setEditing] = useState<Product | null>(null)
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -62,6 +70,17 @@ export default function Products() {
         q: debouncedSearch || undefined,
       }),
     placeholderData: keepPreviousData,
+  })
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: 'published' | 'draft' }) => {
+      await api.post(`/admin/products/${id}`, { status })
+    },
+    onSuccess: () => {
+      notify('Ürün durumu güncellendi.')
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
   })
 
   const products = data?.products ?? []
@@ -137,7 +156,20 @@ export default function Products() {
                         </div>
                       </td>
                       <td>
-                        <Badge status={productStatus(p.status)} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Badge status={productStatus(p.status)} />
+                          <button
+                            className={`status-toggle-btn ${p.status === 'published' ? 'status-toggle-btn--active' : ''}`}
+                            title={p.status === 'published' ? 'Pasif yap (Taslak)' : 'Aktif yap (Yayınla)'}
+                            disabled={statusMutation.isPending}
+                            onClick={() => {
+                              const newStatus = p.status === 'published' ? 'draft' : 'published'
+                              statusMutation.mutate({ id: p.id, status: newStatus })
+                            }}
+                          >
+                            <span className="status-toggle-slider"></span>
+                          </button>
+                        </div>
                       </td>
                       <td className="muted">{p.variants?.length ?? 0}</td>
                       <td className="nowrap">{priceRange(p)}</td>
@@ -145,12 +177,31 @@ export default function Products() {
                         {totalStock(p) === null ? (
                           <span className="muted" title="Stok takibi kapalı">—</span>
                         ) : (
-                          totalStock(p)
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontWeight: 600 }}>{totalStock(p)}</span>
+                            {totalStock(p)! <= (Number((p as any).metadata?.critical_threshold) || 10) && (
+                              <span
+                                className="badge badge--danger"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 3,
+                                  fontSize: '0.72rem',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontWeight: 600
+                                }}
+                                title={`Kritik Stok Limiti: ${(p as any).metadata?.critical_threshold || 10}`}
+                              >
+                                <AlertTriangle size={11} /> Kritik
+                              </span>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td>
                         <div className="row-actions" style={{ justifyContent: 'flex-end' }}>
-                          <button className="btn btn--secondary btn--sm" onClick={() => setEditing(p)}>
+                          <button className="btn btn--secondary btn--sm" onClick={() => navigate(`/products/${p.id}`)}>
                             <Pencil size={14} /> Düzenle
                           </button>
                         </div>
@@ -164,8 +215,6 @@ export default function Products() {
           </>
         )}
       </div>
-
-      {editing && <ProductEdit productId={editing.id} title={editing.title} onClose={() => setEditing(null)} />}
     </>
   )
 }

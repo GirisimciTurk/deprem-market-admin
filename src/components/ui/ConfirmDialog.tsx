@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { Spinner } from './Spinner'
 import Modal from './Modal'
 
@@ -10,6 +11,7 @@ interface ConfirmDialogProps {
   loading?: boolean
   onConfirm: () => void
   onCancel: () => void
+  children?: ReactNode
 }
 
 export function ConfirmDialog({
@@ -21,6 +23,7 @@ export function ConfirmDialog({
   loading = false,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   return (
     <Modal
@@ -43,6 +46,7 @@ export function ConfirmDialog({
       }
     >
       <p style={{ color: 'var(--text-secondary)' }}>{message}</p>
+      {children}
     </Modal>
   )
 }

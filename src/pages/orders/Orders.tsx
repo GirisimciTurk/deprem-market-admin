@@ -9,6 +9,7 @@ import { EmptyState, ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
 import { useDebounce } from '../../lib/useDebounce'
 import { api } from '../../lib/api'
+import { getTrackingUrl } from '../../lib/cargo'
 import type { Order } from '../../lib/types'
 import { orderStatus, paymentStatus, fulfillmentStatus } from '../../lib/statusLabels'
 import { formatMoney, formatDate } from '../../lib/format'
@@ -81,16 +82,26 @@ export default function Orders() {
   })
 
   const shipMutation = useMutation({
-    mutationFn: (order: Order) => {
+    mutationFn: ({ order, trackingNumber }: { order: Order; trackingNumber?: string }) => {
       const fulfillment = (order.fulfillments ?? []).find((f) => !f.shipped_at && !f.canceled_at)
       if (!fulfillment) {
         return Promise.reject(
           new Error('Kargolanacak hazır bir fulfillment bulunamadı. Önce "Hazırla" deyin.')
         )
       }
+      // Takip numarası girildiyse Aras takip linkiyle birlikte label olarak gönder.
+      const labels = trackingNumber
+        ? [
+            {
+              tracking_number: trackingNumber,
+              tracking_url: getTrackingUrl(trackingNumber, fulfillment.provider_id) ?? '',
+              label_url: '',
+            },
+          ]
+        : []
       return api.post(`/admin/orders/${order.id}/fulfillments/${fulfillment.id}/shipments`, {
         items: (order.items ?? []).map((i) => ({ id: i.id, quantity: i.quantity })),
-        labels: [],
+        labels,
       })
     },
     onSuccess: () => {
@@ -101,8 +112,46 @@ export default function Orders() {
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
+  const deliverMutation = useMutation({
+    mutationFn: (order: Order) => {
+      const fulfillment = (order.fulfillments ?? []).find(
+        (f) => f.shipped_at && !f.delivered_at && !f.canceled_at
+      )
+      if (!fulfillment) {
+        return Promise.reject(
+          new Error('Teslim edilecek kargolanmış bir gönderi bulunamadı.')
+        )
+      }
+      return api.post(
+        `/admin/orders/${order.id}/fulfillments/${fulfillment.id}/mark-as-delivered`
+      )
+    },
+    onSuccess: () => {
+      notify('Sipariş teslim edildi olarak işaretlendi.')
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      setSelected(null)
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
+  const refundMutation = useMutation({
+    mutationFn: ({ order, amount }: { order: Order; amount?: number }) =>
+      api.post(`/admin/order-refunds`, amount ? { order_id: order.id, amount } : { order_id: order.id }),
+    onSuccess: () => {
+      notify('Para iadesi yapıldı.')
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
+      setSelected(null)
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
   const orders = data?.orders ?? []
-  const busy = cancelMutation.isPending || fulfillMutation.isPending || shipMutation.isPending
+  const busy =
+    cancelMutation.isPending ||
+    fulfillMutation.isPending ||
+    shipMutation.isPending ||
+    deliverMutation.isPending ||
+    refundMutation.isPending
 
   return (
     <>
@@ -223,7 +272,9 @@ export default function Orders() {
           onClose={() => setSelected(null)}
           onCancel={() => cancelMutation.mutate(selected.id)}
           onFulfill={() => fulfillMutation.mutate(selected)}
-          onShip={() => shipMutation.mutate(selected)}
+          onShip={(trackingNumber) => shipMutation.mutate({ order: selected, trackingNumber })}
+          onDeliver={() => deliverMutation.mutate(selected)}
+          onRefund={(amount) => refundMutation.mutate({ order: selected, amount })}
         />
       )}
     </>
