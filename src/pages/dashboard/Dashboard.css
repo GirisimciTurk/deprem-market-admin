@@ -5,7 +5,56 @@
   gap: 24px;
 }
 
-/* Stats */
+/* Controls & Filter Group */
+.dashboard__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dashboard__filter-group {
+  display: flex;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 4px;
+}
+
+.dashboard__filter-btn {
+  background: transparent;
+  border: none;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.dashboard__filter-btn:hover {
+  color: var(--text-primary);
+}
+
+.dashboard__filter-btn.active {
+  background: var(--bg-primary);
+  color: var(--accent-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Refresh spin animation */
+.refresh-spin svg {
+  animation: spin 0.8s linear;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Primary Stats Grid */
 .dashboard__stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -35,7 +84,7 @@
 
 .stat-card__title {
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -93,10 +142,52 @@
   color: var(--accent-danger);
 }
 
-/* Charts */
+/* Secondary Info Stats */
+.dashboard__sub-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.sub-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.sub-stat-card__icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--bg-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.sub-stat-card__label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.sub-stat-card__val {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+/* Charts Grid */
 .dashboard__charts {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.2fr 0.8fr;
   gap: 16px;
 }
 
@@ -106,46 +197,285 @@
 
 .dashboard__chart-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   margin-bottom: 20px;
 }
 
 .dashboard__chart-header h3 {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
 }
 
-.dashboard__chart {
+.chart-subtitle,
+.card-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+/* Donut Chart and Legend */
+.donut-chart-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.donut-legend {
   width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px 16px;
+  margin-top: 10px;
+  padding: 0 10px;
 }
 
-/* Tables */
-.dashboard__tables {
+.donut-legend__item {
+  display: flex;
+  align-items: center;
+  font-size: 0.78rem;
+}
+
+.donut-legend__bullet {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 8px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.donut-legend__name {
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.donut-legend__percentage {
+  font-weight: 700;
+  margin-left: auto;
+  color: var(--text-primary);
+}
+
+/* Action Grid (Son Siparişler, Kritik Stok, Logs) */
+.dashboard__action-grid {
   display: grid;
-  grid-template-columns: 1.2fr 0.8fr;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr;
   gap: 16px;
+}
+
+.dashboard__watchlist-card,
+.dashboard__logs-card,
+.dashboard__table-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
 .dashboard__section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .dashboard__section-header h3 {
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
 }
 
-/* Responsive */
-@media (max-width: 1200px) {
+.dashboard__time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-tertiary);
+}
+
+/* Low Stock Watchlist */
+.dashboard__watchlist {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.watchlist-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.watchlist-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.watchlist-item__name {
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.watchlist-item__count {
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.watchlist-item__progress-bg {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.watchlist-item__progress-bar {
+  height: 100%;
+  border-radius: 3px;
+}
+
+/* Logs Feed */
+.dashboard__logs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+  max-height: 230px;
+}
+
+.log-item {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.log-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.log-item__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.log-item__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.log-item__dot--success { background-color: var(--accent-success); }
+.log-item__dot--info { background-color: var(--accent-info); }
+.log-item__dot--warning { background-color: var(--accent-warning); }
+.log-item__dot--danger { background-color: var(--accent-danger); }
+
+.log-item__text {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin: 0;
+}
+
+.log-item__time {
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+  margin-left: 14px;
+}
+
+/* Live Badge with Pulse */
+.live-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--accent-success);
+  background: var(--accent-success-light);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background-color: var(--accent-success);
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+  animation: pulse 1.6s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 8px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+/* Text Colors */
+.text-primary { color: var(--accent-primary); }
+.text-success { color: var(--accent-success); }
+.text-info { color: var(--accent-info); }
+.text-warning { color: var(--accent-warning); }
+
+/* Responsive adjustments */
+@media (max-width: 1300px) {
+  .dashboard__action-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dashboard__action-grid .dashboard__table-card {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 1100px) {
   .dashboard__stats {
     grid-template-columns: repeat(2, 1fr);
   }
-  .dashboard__charts,
-  .dashboard__tables {
+  .dashboard__sub-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dashboard__charts {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard__stats,
+  .dashboard__sub-stats,
+  .dashboard__action-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard__action-grid .dashboard__table-card {
+    grid-column: span 1;
+  }
+  .dashboard__controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .dashboard__filter-group {
+    justify-content: space-between;
   }
 }
