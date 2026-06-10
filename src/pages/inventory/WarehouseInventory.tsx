@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Warehouse, AlertTriangle, Search, CheckCircle, TrendingUp, Save } from 'lucide-react'
+import { Warehouse, AlertTriangle, Search, CheckCircle, TrendingUp, Save, MoreHorizontal } from 'lucide-react'
+import StockActionModal from './StockActionModal'
 import Header from '../../components/layout/Header'
 import { LoadingState } from '../../components/ui/Spinner'
 import { ErrorState, EmptyState } from '../../components/ui/StateBox'
@@ -48,6 +49,7 @@ export default function WarehouseInventory() {
   const debounced = useDebounce(search)
   // Hücre düzenleme tamponu: `${invItemId}:${locId}` -> stringvalue
   const [edits, setEdits] = useState<Record<string, string>>({})
+  const [actionRow, setActionRow] = useState<InvRow | null>(null)
 
   const { data: locResp } = useQuery({
     queryKey: ['stock-locations'],
@@ -103,23 +105,18 @@ export default function WarehouseInventory() {
     )
   }, [rows, debounced])
 
+  // Manuel düzeltme artık /admin/stock-adjust üzerinden: stok hareketi ("manual") kaydeder
+  // ve düşük stok eşiğini kontrol eder. Uç, seviye yoksa oluşturur.
   const saveLevel = useMutation({
-    mutationFn: async (args: { invItemId: string; locationId: string; stocked: number; exists: boolean }) => {
-      const { invItemId, locationId, stocked, exists } = args
-      if (exists) {
-        // Var olan seviyeyi güncelle
-        return api.post(`/admin/inventory-items/${invItemId}/location-levels/${locationId}`, {
-          stocked_quantity: stocked,
-        })
-      }
-      // Yoksa oluştur
-      return api.post(`/admin/inventory-items/${invItemId}/location-levels`, {
-        location_id: locationId,
-        stocked_quantity: stocked,
-      })
-    },
+    mutationFn: (args: { invItemId: string; locationId: string; stocked: number }) =>
+      api.post('/admin/stock-adjust', {
+        inventory_item_id: args.invItemId,
+        location_id: args.locationId,
+        stocked_quantity: args.stocked,
+        reason: 'Manuel düzeltme (panel)',
+      }),
     onSuccess: () => {
-      notify('Stok güncellendi.')
+      notify('Stok güncellendi (hareket kaydedildi).')
       qc.invalidateQueries({ queryKey: ['inventory-products'] })
       qc.invalidateQueries({ queryKey: ['products-dashboard'] })
     },
@@ -140,7 +137,7 @@ export default function WarehouseInventory() {
       return
     }
     saveLevel.mutate(
-      { invItemId: row.inventoryItemId, locationId: locId, stocked, exists: !!row.levels[locId] },
+      { invItemId: row.inventoryItemId, locationId: locId, stocked },
       { onSettled: () => setEdits((p) => { const n = { ...p }; delete n[k]; return n }) }
     )
   }
@@ -215,6 +212,7 @@ export default function WarehouseInventory() {
                       ))}
                       <th style={{ textAlign: 'center' }}>Eşik</th>
                       <th>Durum</th>
+                      <th style={{ textAlign: 'center' }}>İşlem</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -268,6 +266,17 @@ export default function WarehouseInventory() {
                               {isLow ? 'Kritik Stok' : 'Güvenli'}
                             </span>
                           </td>
+                          <td style={{ textAlign: 'center' }}>
+                            {r.inventoryItemId && (
+                              <button
+                                className="btn btn--secondary btn--sm"
+                                title="Sayım / Transfer"
+                                onClick={() => setActionRow(r)}
+                              >
+                                <MoreHorizontal size={14} />
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       )
                     })}
@@ -318,6 +327,20 @@ export default function WarehouseInventory() {
           </div>
         </div>
       </div>
+
+      {actionRow && (
+        <StockActionModal
+          row={{
+            productTitle: actionRow.productTitle,
+            variantTitle: actionRow.variantTitle,
+            sku: actionRow.sku,
+            inventoryItemId: actionRow.inventoryItemId,
+            levels: actionRow.levels,
+          }}
+          locations={locations}
+          onClose={() => setActionRow(null)}
+        />
+      )}
     </>
   )
 }

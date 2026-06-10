@@ -33,6 +33,10 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
   const isFulfilled = !!order.fulfillment_status && order.fulfillment_status !== 'not_fulfilled'
   // Para iadesi: ödeme alınmış (authorized/captured/partially_refunded) ve henüz tam iade edilmemişse.
   const isRefundable = ['authorized', 'captured', 'partially_refunded'].includes(order.payment_status || '')
+  // order.total = iade SONRASI kalan (current_order_total); kalemler orijinal fiyatla gösterildiği için
+  // ana tutarda iade-öncesi (original_total) kullan, iadeyi ayrı satırda göster.
+  const orderTotal = order.summary?.original_order_total ?? order.original_total ?? order.total
+  const refundedTotal = order.summary?.refunded_total ?? 0
 
   const confirmConfig = {
     cancel: {
@@ -174,9 +178,28 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
             </div>
           ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-primary)', fontWeight: 700 }}>
-          <span>Toplam</span>
-          <span>{formatMoney(order.total, order.currency_code)}</span>
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-primary)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {refundedTotal > 0 ? (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                <span className="muted">Sipariş Tutarı</span>
+                <span>{formatMoney(orderTotal, order.currency_code)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', color: 'var(--danger, #e5484d)' }}>
+                <span>İade Edilen</span>
+                <span>−{formatMoney(refundedTotal, order.currency_code)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, paddingTop: 6, borderTop: '1px dashed var(--border-primary)' }}>
+                <span>Net Tahsilat</span>
+                <span>{formatMoney(Math.max(0, (orderTotal ?? 0) - refundedTotal), order.currency_code)}</span>
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+              <span>Toplam</span>
+              <span>{formatMoney(orderTotal, order.currency_code)}</span>
+            </div>
+          )}
         </div>
       </div>
 

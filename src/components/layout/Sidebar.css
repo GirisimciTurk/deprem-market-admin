@@ -82,8 +82,10 @@
   color: var(--text-primary);
 }
 
-.sidebar--collapsed .sidebar__toggle {
-  display: none;
+/* Daraltılmışken de toggle görünür kalır; logo + buton dikey istiflenir (72px'e sığar). */
+.sidebar--collapsed .sidebar__header {
+  flex-direction: column;
+  gap: 10px;
 }
 
 .sidebar__nav {

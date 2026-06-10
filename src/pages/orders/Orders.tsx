@@ -17,7 +17,7 @@ import OrderDetail from './OrderDetail'
 
 const LIMIT = 20
 const ORDER_FIELDS =
-  'id,display_id,email,status,payment_status,fulfillment_status,total,currency_code,created_at,*items,*shipping_address,*fulfillments'
+  'id,display_id,email,status,payment_status,fulfillment_status,total,original_total,summary.*,currency_code,created_at,*items,*shipping_address,*fulfillments'
 
 interface OrdersResponse {
   orders: Order[]
@@ -238,7 +238,7 @@ export default function Orders() {
                           {o.email}
                         </div>
                       </td>
-                      <td className="nowrap">{formatMoney(o.total, o.currency_code)}</td>
+                      <td className="nowrap">{formatMoney(o.summary?.original_order_total ?? o.original_total ?? o.total, o.currency_code)}</td>
                       <td>
                         <Badge status={paymentStatus(o.payment_status)} />
                       </td>

@@ -28,9 +28,10 @@ const RETURN_FIELDS = [
   'items.item.title',
   'items.item.product_title',
   'items.item.unit_price',
-  'order.display_id',
-  'order.email',
-  'order.currency_code',
+  // NOT: `order` ilişkisi BİLEREK burada yok. /admin/returns'te `order` ilişkisini
+  // genişletirken aynı anda `order=-created_at` sıralama parametresi gönderince Medusa
+  // ikisini karıştırıp `Order.name`'e göre sıralamaya çalışıyor → 500. Sipariş bilgisi
+  // (display_id/email/currency) ayrı bir /admin/orders çağrısıyla çekilip birleştiriliyor.
 ].join(',')
 
 interface ReturnItem {
@@ -49,7 +50,15 @@ interface ReturnRecord {
   display_id?: number
   created_at: string
   items?: ReturnItem[]
-  order?: { display_id?: number; email?: string; currency_code?: string } | null
+  order?: {
+    display_id?: number
+    email?: string
+    currency_code?: string
+    /** Siparişte şimdiye dek iade edilmiş toplam (kuruş). */
+    refunded_total?: number
+    /** Siparişte tahsil edilmiş toplam (kuruş) — iade edilebilir tavanı belirler. */
+    paid_total?: number
+  } | null
 }
 
 // İade edilen kalemlerin toplam değeri (minor unit/kuruş) = onaylanınca iade edilecek tutar.
@@ -76,13 +85,36 @@ export default function Returns() {
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['returns', offset],
-    queryFn: () =>
-      api.get<ReturnsResponse>('/admin/returns', {
+    queryFn: async () => {
+      const res = await api.get<ReturnsResponse>('/admin/returns', {
         limit: LIMIT,
         offset,
         fields: RETURN_FIELDS,
         order: '-created_at',
-      }),
+      })
+      // Sipariş bilgisini ayrı çek (order ilişkisi + sıralama Medusa'da çakışıyor, bkz. RETURN_FIELDS notu).
+      const orderIds = [...new Set((res.returns ?? []).map((r) => r.order_id).filter(Boolean))]
+      if (orderIds.length) {
+        const qs = orderIds.map((id) => `id[]=${encodeURIComponent(id)}`).join('&')
+        // summary.* gerekiyor: spesifik summary.x alanları null dönüyor (computed field).
+        const ordersRes = await api.get<{
+          orders: { id: string; display_id?: number; email?: string; currency_code?: string; summary?: { refunded_total?: number; paid_total?: number } }[]
+        }>(`/admin/orders?fields=id,display_id,email,currency_code,summary.*&limit=${orderIds.length}&${qs}`)
+        const byId = new Map((ordersRes.orders ?? []).map((o) => [o.id, o]))
+        res.returns.forEach((r) => {
+          const o = byId.get(r.order_id)
+          if (o)
+            r.order = {
+              display_id: o.display_id,
+              email: o.email,
+              currency_code: o.currency_code,
+              refunded_total: o.summary?.refunded_total,
+              paid_total: o.summary?.paid_total,
+            }
+        })
+      }
+      return res
+    },
     placeholderData: keepPreviousData,
   })
 
@@ -101,14 +133,23 @@ export default function Returns() {
       await api.post(`/admin/returns/${ret.id}/receive`, {})
       await api.post(`/admin/returns/${ret.id}/receive-items`, { items })
       await api.post(`/admin/returns/${ret.id}/receive/confirm`, {})
-      // 2) İade edilen kalemlerin değerini iade et (varsa)
-      const amount = returnRefundMinor(ret)
-      if (amount > 0) {
+      // 2) İade edilen kalemlerin değerini iade et — ama siparişte GERÇEKTEN iade edilebilen kadar.
+      // Ödenmemiş sipariş (paid=0) veya tutarı önceden iade edilmiş siparişte iade adımı atlanır,
+      // aksi halde order-refunds 400 verir ve stok geri eklenmiş ama akış hata vermiş olur.
+      const refundable = Math.max(0, (ret.order?.paid_total ?? 0) - (ret.order?.refunded_total ?? 0))
+      const amount = Math.min(returnRefundMinor(ret), refundable)
+      const refunded = amount > 0
+      if (refunded) {
         await api.post('/admin/order-refunds', { order_id: ret.order_id, amount })
       }
+      return { refunded, amount }
     },
-    onSuccess: () => {
-      notify('İade onaylandı: stok geri eklendi, ücret iadesi yapıldı, müşteriye e-posta gönderildi.')
+    onSuccess: (r) => {
+      notify(
+        r.refunded
+          ? `İade onaylandı: stok geri eklendi, ${formatMoney(r.amount, cur)} ücret iadesi yapıldı, müşteriye e-posta gönderildi.`
+          : 'İade onaylandı: stok geri eklendi, müşteriye e-posta gönderildi. (Siparişte iade edilecek tahsilat yok.)'
+      )
       queryClient.invalidateQueries({ queryKey: ['returns'] })
       setSelected(null)
     },
@@ -134,6 +175,16 @@ export default function Returns() {
   const busy = approveMutation.isPending || refundMutation.isPending
 
   const canReceive = (s: string) => s === 'requested' || s === 'partially_received'
+
+  // Seçili iadenin siparişinde para durumu (modal için).
+  const refundedTotal = selected?.order?.refunded_total ?? 0
+  const paidTotal = selected?.order?.paid_total ?? 0
+  const refundableRemaining = Math.max(0, paidTotal - refundedTotal)
+  // Tahsilat bilgisi var ve iade edilebilir bakiye kalmadıysa manuel iade engellenir (çift-iade önleme).
+  const nothingRefundable = paidTotal > 0 && refundableRemaining <= 0
+  const cur = selected?.order?.currency_code
+  // Onayda gerçekten iade edilecek tutar = kalem değeri ile iade-edilebilir bakiyenin küçüğü.
+  const approveRefund = selected ? Math.min(returnRefundMinor(selected), refundableRemaining) : 0
 
   return (
     <>
@@ -217,7 +268,12 @@ export default function Returns() {
                     {busy ? <Spinner size={14} /> : <PackageCheck size={15} />} İadeyi Onayla
                   </button>
                 )}
-                <button className="btn btn--secondary" disabled={busy} onClick={() => setPending('refund')}>
+                <button
+                  className="btn btn--secondary"
+                  disabled={busy || nothingRefundable}
+                  title={nothingRefundable ? 'Bu siparişin iade edilebilir bakiyesi kalmadı.' : undefined}
+                  onClick={() => setPending('refund')}
+                >
                   {busy ? <Spinner size={14} /> : <RotateCcw size={15} />} Manuel Para İadesi
                 </button>
               </div>
@@ -256,31 +312,59 @@ export default function Returns() {
             </div>
           </div>
 
-          {returnRefundMinor(selected) > 0 && (
+          {refundedTotal > 0 ? (
+            // Bu siparişte zaten iade yapılmış (onay akışı veya manuel) → yanlış "iade edilecek" gösterme.
+            <div
+              className="card"
+              style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>İade edildi</span>
+                <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--success, #16a34a)' }}>
+                  {formatMoney(refundedTotal, cur)}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }} className="muted">
+                <span>İade edilebilir kalan</span>
+                <span>{formatMoney(refundableRemaining, cur)}</span>
+              </div>
+            </div>
+          ) : approveRefund > 0 ? (
             <div
               className="card"
               style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
             >
               <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Onaylanınca iade edilecek</span>
               <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent, #e11d48)' }}>
-                {formatMoney(returnRefundMinor(selected), selected.order?.currency_code)}
+                {formatMoney(approveRefund, cur)}
               </span>
             </div>
-          )}
+          ) : null}
 
           <p className="muted" style={{ fontSize: '0.78rem', marginTop: 14, lineHeight: 1.6 }}>
-            <strong>"İadeyi Onayla"</strong>: iadeyi teslim alınmış işaretler → stoğu geri ekler →
-            iade edilen kalemlerin ücretini müşteriye iade eder → müşteriye onay e-postası gönderir.
-            Farklı/kısmi bir tutar iade etmek için "Manuel Para İadesi"ni kullanın.
+            {canReceive(selected.status) ? (
+              <>
+                <strong>"İadeyi Onayla"</strong>: iadeyi teslim alınmış işaretler → stoğu geri ekler →{' '}
+                {approveRefund > 0
+                  ? `müşteriye ${formatMoney(approveRefund, cur)} ücret iadesi yapar →`
+                  : 'siparişte iade edilecek tahsilat olmadığı için ücret iadesi yapılmaz →'}{' '}
+                müşteriye onay e-postası gönderir.
+                {approveRefund > 0 && ' Farklı/kısmi bir tutar iade etmek için "Manuel Para İadesi"ni kullanın.'}
+              </>
+            ) : nothingRefundable ? (
+              <>Bu siparişin iade edilebilir bakiyesi kalmadı (tutar zaten iade edildi). Ek iade yapılamaz.</>
+            ) : (
+              <>Bu iade teslim alınmış. Kalan tutarı iade etmek için "Manuel Para İadesi"ni kullanın.</>
+            )}
           </p>
 
           {pending === 'approve' && (
             <ConfirmDialog
               title="İadeyi Onayla"
               message={`#${selected.display_id ?? ''} numaralı iade onaylanacak: stok geri eklenecek, ${
-                returnRefundMinor(selected) > 0
-                  ? `müşteriye ${formatMoney(returnRefundMinor(selected), selected.order?.currency_code)} ücret iadesi yapılacak`
-                  : 'ücret iadesi gerekmiyor'
+                approveRefund > 0
+                  ? `müşteriye ${formatMoney(approveRefund, cur)} ücret iadesi yapılacak`
+                  : 'ücret iadesi gerekmiyor (siparişte iade edilecek tahsilat yok)'
               } ve müşteriye onay e-postası gönderilecek. Onaylıyor musunuz?`}
               confirmLabel="İadeyi Onayla"
               danger={false}
@@ -296,13 +380,18 @@ export default function Returns() {
           {pending === 'refund' && (
             <ConfirmDialog
               title="Para İadesi Yap"
-              message={`Sipariş #${selected.order?.display_id ?? ''} için iade tutarını girin. Boş bırakırsanız iade edilebilir tutarın tamamı iade edilir.`}
+              message={`Sipariş #${selected.order?.display_id ?? ''} için iade tutarını girin. İade edilebilir kalan: ${formatMoney(refundableRemaining, cur)}. Boş bırakırsanız kalanın tamamı iade edilir.`}
               confirmLabel="İadeyi Onayla"
               danger
               loading={busy}
               onConfirm={() => {
                 const tl = parseFloat(refundAmount.replace(',', '.'))
                 const amount = refundAmount.trim() && !Number.isNaN(tl) && tl > 0 ? Math.round(tl * 100) : undefined
+                // Girilen tutar kalan bakiyeyi aşıyorsa backend'e gitmeden uyar.
+                if (amount && refundableRemaining > 0 && amount > refundableRemaining) {
+                  notify(`Girilen tutar iade edilebilir kalandan (${formatMoney(refundableRemaining, cur)}) fazla.`, 'error')
+                  return
+                }
                 refundMutation.mutate({ ret: selected, amount })
                 setPending(null)
                 setRefundAmount('')
@@ -323,7 +412,7 @@ export default function Returns() {
                   step="0.01"
                   value={refundAmount}
                   onChange={(e) => setRefundAmount(e.target.value)}
-                  placeholder="Tutar"
+                  placeholder={(refundableRemaining / 100).toFixed(2)}
                   disabled={busy}
                   style={{ width: '100%' }}
                 />

@@ -26,6 +26,7 @@ const Promotions = lazy(() => import('./pages/promotions/Promotions'))
 const Reviews = lazy(() => import('./pages/reviews/Reviews'))
 const SettingsPage = lazy(() => import('./pages/settings/Settings'))
 const WarehouseInventory = lazy(() => import('./pages/inventory/WarehouseInventory'))
+const StockMovements = lazy(() => import('./pages/stock-movements/StockMovements'))
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +62,7 @@ export default function App() {
                     <Route path="/promotions" element={<RoleGuard><Promotions /></RoleGuard>} />
                     <Route path="/reviews" element={<Reviews />} />
                     <Route path="/inventory" element={<WarehouseInventory />} />
+                    <Route path="/stock-movements" element={<StockMovements />} />
                     <Route path="/settings" element={<RoleGuard><SettingsPage /></RoleGuard>} />
                   </Route>
                 </Route>

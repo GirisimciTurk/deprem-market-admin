@@ -13,6 +13,7 @@ import {
   Handshake,
   MessageSquare,
   Warehouse,
+  History,
   Percent,
   Undo2,
   Settings,
@@ -27,6 +28,7 @@ const navItems = [
   { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { path: '/products', icon: Package, label: 'Ürünler' },
   { path: '/inventory', icon: Warehouse, label: 'Depo & Envanter' },
+  { path: '/stock-movements', icon: History, label: 'Stok Geçmişi' },
   { path: '/orders', icon: ShoppingCart, label: 'Siparişler' },
   { path: '/returns', icon: Undo2, label: 'İadeler' },
   { path: '/promotions', icon: Percent, label: 'Promosyonlar' },
@@ -37,9 +39,18 @@ const navItems = [
   { path: '/settings', icon: Settings, label: 'Ayarlar' },
 ]
 
+const SIDEBAR_KEY = 'dm_sidebar_collapsed'
+
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false)
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem(SIDEBAR_KEY) === '1')
   const [confirmLogout, setConfirmLogout] = useState(false)
+
+  const toggleCollapsed = () =>
+    setCollapsed((prev) => {
+      const next = !prev
+      localStorage.setItem(SIDEBAR_KEY, next ? '1' : '0')
+      return next
+    })
   const location = useLocation()
   const { role } = useCurrentUser()
   const visibleItems = navItems.filter((item) => canAccess(role, item.path))
@@ -60,7 +71,7 @@ export default function Sidebar() {
         </div>
         <button
           className="sidebar__toggle"
-          onClick={() => setCollapsed(!collapsed)}
+          onClick={toggleCollapsed}
           title={collapsed ? 'Genişlet' : 'Daralt'}
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}

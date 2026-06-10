@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Package, Search, Pencil, AlertTriangle } from 'lucide-react'
+import { Package, Search, Pencil, AlertTriangle, Barcode } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
@@ -13,6 +13,7 @@ import { api } from '../../lib/api'
 import type { Product, ProductVariant } from '../../lib/types'
 import { productStatus } from '../../lib/statusLabels'
 import { formatMoney } from '../../lib/format'
+import BarcodePrint from './BarcodePrint'
 
 const LIMIT = 20
 const PRODUCT_FIELDS =
@@ -58,6 +59,7 @@ export default function Products() {
   const navigate = useNavigate()
   const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
+  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null)
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -201,6 +203,9 @@ export default function Products() {
                       </td>
                       <td>
                         <div className="row-actions" style={{ justifyContent: 'flex-end' }}>
+                          <button className="btn btn--secondary btn--sm" onClick={() => setBarcodeProduct(p)}>
+                            <Barcode size={14} /> Barkod
+                          </button>
                           <button className="btn btn--secondary btn--sm" onClick={() => navigate(`/products/${p.id}`)}>
                             <Pencil size={14} /> Düzenle
                           </button>
@@ -215,6 +220,10 @@ export default function Products() {
           </>
         )}
       </div>
+
+      {barcodeProduct && (
+        <BarcodePrint product={barcodeProduct} onClose={() => setBarcodeProduct(null)} />
+      )}
     </>
   )
 }

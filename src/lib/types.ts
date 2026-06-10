@@ -47,11 +47,22 @@ export interface Order {
   payment_status?: string
   fulfillment_status?: string
   currency_code?: string
+  /** Iade/değişiklik SONRASI kalan tutar (Medusa current_order_total). İade varsa kalemlerden düşük olabilir. */
   total?: number
+  /** Sipariş değişiklik/iade ÖNCESİ tutar — kalemlerin orijinal fiyatlarıyla tutarlı. */
+  original_total?: number
+  summary?: OrderSummary
   created_at?: string
   items?: OrderItem[]
   shipping_address?: OrderAddress | null
   fulfillments?: Fulfillment[]
+}
+
+export interface OrderSummary {
+  paid_total?: number
+  refunded_total?: number
+  current_order_total?: number
+  original_order_total?: number
 }
 
 export interface MoneyAmount {
@@ -64,6 +75,7 @@ export interface ProductVariant {
   id: string
   title?: string
   sku?: string | null
+  barcode?: string | null
   manage_inventory?: boolean
   inventory_quantity?: number
   prices?: MoneyAmount[]
