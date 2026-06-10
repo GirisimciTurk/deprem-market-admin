@@ -11,7 +11,7 @@ import { EmptyState, ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
 import { api } from '../../lib/api'
 import { returnStatus } from '../../lib/statusLabels'
-import { formatDate } from '../../lib/format'
+import { formatDate, formatMoney } from '../../lib/format'
 
 const LIMIT = 20
 const RETURN_FIELDS = [
@@ -27,8 +27,10 @@ const RETURN_FIELDS = [
   'items.reason.label',
   'items.item.title',
   'items.item.product_title',
+  'items.item.unit_price',
   'order.display_id',
   'order.email',
+  'order.currency_code',
 ].join(',')
 
 interface ReturnItem {
@@ -37,7 +39,7 @@ interface ReturnItem {
   quantity: number
   received_quantity?: number
   reason?: { label?: string } | null
-  item?: { title?: string; product_title?: string } | null
+  item?: { title?: string; product_title?: string; unit_price?: number } | null
 }
 
 interface ReturnRecord {
@@ -47,8 +49,15 @@ interface ReturnRecord {
   display_id?: number
   created_at: string
   items?: ReturnItem[]
-  order?: { display_id?: number; email?: string } | null
+  order?: { display_id?: number; email?: string; currency_code?: string } | null
 }
+
+// İade edilen kalemlerin toplam değeri (minor unit/kuruş) = onaylanınca iade edilecek tutar.
+const returnRefundMinor = (ret: ReturnRecord) =>
+  (ret.items ?? []).reduce(
+    (sum, i) => sum + (i.quantity || 0) * (i.item?.unit_price || 0),
+    0
+  )
 
 interface ReturnsResponse {
   returns: ReturnRecord[]
@@ -62,7 +71,7 @@ export default function Returns() {
   const { notify } = useToast()
   const [offset, setOffset] = useState(0)
   const [selected, setSelected] = useState<ReturnRecord | null>(null)
-  const [pending, setPending] = useState<'receive' | 'refund' | null>(null)
+  const [pending, setPending] = useState<'approve' | 'refund' | null>(null)
   const [refundAmount, setRefundAmount] = useState('')
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -77,20 +86,29 @@ export default function Returns() {
     placeholderData: keepPreviousData,
   })
 
-  // İadeyi teslim al: begin-receive → receive-items (tüm kalemler) → confirm.
-  // confirm aşaması managed-inventory variantları için stoğu OTOMATİK geri ekler.
-  const receiveMutation = useMutation({
+  // İadeyi ONAYLA (tek akış):
+  //  1) Teslim al: begin-receive → receive-items → confirm
+  //     (confirm managed-inventory variantları için stoğu OTOMATİK geri ekler ve
+  //      order.return_received event'iyle müşteriye "İadeniz Teslim Alındı" maili gider).
+  //  2) İade edilen kalemlerin değerini müşteriye geri öde (/admin/order-refunds).
+  const approveMutation = useMutation({
     mutationFn: async (ret: ReturnRecord) => {
       const items = (ret.items ?? [])
         .filter((i) => i.quantity > 0)
         .map((i) => ({ id: i.item_id, quantity: i.quantity }))
-      if (!items.length) throw new Error('Teslim alınacak kalem bulunamadı.')
+      if (!items.length) throw new Error('Onaylanacak kalem bulunamadı.')
+      // 1) Teslim al + stok + mail
       await api.post(`/admin/returns/${ret.id}/receive`, {})
       await api.post(`/admin/returns/${ret.id}/receive-items`, { items })
       await api.post(`/admin/returns/${ret.id}/receive/confirm`, {})
+      // 2) İade edilen kalemlerin değerini iade et (varsa)
+      const amount = returnRefundMinor(ret)
+      if (amount > 0) {
+        await api.post('/admin/order-refunds', { order_id: ret.order_id, amount })
+      }
     },
     onSuccess: () => {
-      notify('İade teslim alındı; stok otomatik geri eklendi ve müşteriye e-posta gönderildi.')
+      notify('İade onaylandı: stok geri eklendi, ücret iadesi yapıldı, müşteriye e-posta gönderildi.')
       queryClient.invalidateQueries({ queryKey: ['returns'] })
       setSelected(null)
     },
@@ -113,7 +131,7 @@ export default function Returns() {
   })
 
   const returns = data?.returns ?? []
-  const busy = receiveMutation.isPending || refundMutation.isPending
+  const busy = approveMutation.isPending || refundMutation.isPending
 
   const canReceive = (s: string) => s === 'requested' || s === 'partially_received'
 
@@ -195,12 +213,12 @@ export default function Returns() {
             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: 10, flexWrap: 'wrap' }}>
               <div className="row-actions">
                 {canReceive(selected.status) && (
-                  <button className="btn btn--primary" disabled={busy} onClick={() => setPending('receive')}>
-                    {busy ? <Spinner size={14} /> : <PackageCheck size={15} />} Teslim Al & Stoğa Ekle
+                  <button className="btn btn--primary" disabled={busy} onClick={() => setPending('approve')}>
+                    {busy ? <Spinner size={14} /> : <PackageCheck size={15} />} İadeyi Onayla
                   </button>
                 )}
                 <button className="btn btn--secondary" disabled={busy} onClick={() => setPending('refund')}>
-                  {busy ? <Spinner size={14} /> : <RotateCcw size={15} />} Para İadesi
+                  {busy ? <Spinner size={14} /> : <RotateCcw size={15} />} Manuel Para İadesi
                 </button>
               </div>
               <button className="btn btn--secondary" onClick={() => setSelected(null)}>
@@ -238,20 +256,37 @@ export default function Returns() {
             </div>
           </div>
 
+          {returnRefundMinor(selected) > 0 && (
+            <div
+              className="card"
+              style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+            >
+              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Onaylanınca iade edilecek</span>
+              <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent, #e11d48)' }}>
+                {formatMoney(returnRefundMinor(selected), selected.order?.currency_code)}
+              </span>
+            </div>
+          )}
+
           <p className="muted" style={{ fontSize: '0.78rem', marginTop: 14, lineHeight: 1.6 }}>
-            "Teslim Al & Stoğa Ekle" iadeyi teslim alınmış olarak işaretler ve stoğu otomatik geri ekler.
-            Müşteriye ücret iadesini "Para İadesi" ile yapın (gerekirse otomatik tahsil + Paynkolay iadesi).
+            <strong>"İadeyi Onayla"</strong>: iadeyi teslim alınmış işaretler → stoğu geri ekler →
+            iade edilen kalemlerin ücretini müşteriye iade eder → müşteriye onay e-postası gönderir.
+            Farklı/kısmi bir tutar iade etmek için "Manuel Para İadesi"ni kullanın.
           </p>
 
-          {pending === 'receive' && (
+          {pending === 'approve' && (
             <ConfirmDialog
-              title="İadeyi Teslim Al"
-              message={`#${selected.display_id ?? ''} numaralı iade teslim alınmış olarak işaretlenecek, iade edilen ürünlerin stoğu otomatik geri eklenecek ve müşteriye "İadeniz Teslim Alındı" e-postası gönderilecek. Onaylıyor musunuz?`}
-              confirmLabel="Teslim Al"
+              title="İadeyi Onayla"
+              message={`#${selected.display_id ?? ''} numaralı iade onaylanacak: stok geri eklenecek, ${
+                returnRefundMinor(selected) > 0
+                  ? `müşteriye ${formatMoney(returnRefundMinor(selected), selected.order?.currency_code)} ücret iadesi yapılacak`
+                  : 'ücret iadesi gerekmiyor'
+              } ve müşteriye onay e-postası gönderilecek. Onaylıyor musunuz?`}
+              confirmLabel="İadeyi Onayla"
               danger={false}
               loading={busy}
               onConfirm={() => {
-                receiveMutation.mutate(selected)
+                approveMutation.mutate(selected)
                 setPending(null)
               }}
               onCancel={() => setPending(null)}
