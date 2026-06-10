@@ -18,6 +18,7 @@ const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'))
 const Products = lazy(() => import('./pages/products/Products'))
 const ProductEdit = lazy(() => import('./pages/products/ProductEdit'))
 const Orders = lazy(() => import('./pages/orders/Orders'))
+const Returns = lazy(() => import('./pages/returns/Returns'))
 const Customers = lazy(() => import('./pages/customers/Customers'))
 const Blog = lazy(() => import('./pages/blog/Blog'))
 const Resellers = lazy(() => import('./pages/resellers/Resellers'))
@@ -53,6 +54,7 @@ export default function App() {
                     <Route path="/products" element={<Products />} />
                     <Route path="/products/:id" element={<ProductEdit />} />
                     <Route path="/orders" element={<Orders />} />
+                    <Route path="/returns" element={<Returns />} />
                     <Route path="/customers" element={<RoleGuard><Customers /></RoleGuard>} />
                     <Route path="/blog" element={<Blog />} />
                     <Route path="/resellers" element={<RoleGuard><Resellers /></RoleGuard>} />
