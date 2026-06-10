@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
   MessageSquare,
   Search,
@@ -13,10 +13,14 @@ import {
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
+import Pagination from '../../components/ui/Pagination'
 import { LoadingState } from '../../components/ui/Spinner'
 import { ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
+import { useDebounce } from '../../lib/useDebounce'
 import { api } from '../../lib/api'
+
+const LIMIT = 20
 
 interface ProductReview {
   id: string
@@ -53,16 +57,24 @@ function mapReview(r: BackendReview): ProductReview {
 export default function Reviews() {
   const { notify } = useToast()
   const queryClient = useQueryClient()
+  const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const debounced = useDebounce(search)
 
-  const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['reviews'],
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+    queryKey: ['reviews', offset, debounced, statusFilter],
     queryFn: () =>
-      api.get<{ reviews: BackendReview[]; count: number }>('/admin/reviews'),
+      api.get<{ reviews: BackendReview[]; count: number }>('/admin/reviews', {
+        limit: LIMIT,
+        offset,
+        q: debounced || undefined,
+        status: statusFilter || undefined,
+      }),
+    placeholderData: keepPreviousData,
   })
 
-  const currentReviews: ProductReview[] = (data?.reviews ?? []).map(mapReview)
+  const reviews: ProductReview[] = (data?.reviews ?? []).map(mapReview)
 
   const statusMutation = useMutation({
     mutationFn: ({
@@ -124,18 +136,6 @@ export default function Reviews() {
     ))
   }
 
-  // Filter reviews
-  const filteredReviews = currentReviews.filter(review => {
-    const matchesSearch =
-      review.productName.toLowerCase().includes(search.toLowerCase()) ||
-      review.customerName.toLowerCase().includes(search.toLowerCase()) ||
-      review.comment.toLowerCase().includes(search.toLowerCase())
-    
-    const matchesStatus = statusFilter ? review.status === statusFilter : true
-
-    return matchesSearch && matchesStatus
-  })
-
   return (
     <>
       <Header title="Yorumlar" subtitle="Ürün yorumlarını moderasyon edin ve puanları izleyin" />
@@ -151,12 +151,18 @@ export default function Reviews() {
               className="header__search-input"
               style={{ width: '100%' }}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setOffset(0)
+              }}
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value)
+              setOffset(0)
+            }}
             style={{ width: 'auto', minWidth: '160px' }}
           >
             <option value="">Tüm Durumlar</option>
@@ -171,14 +177,15 @@ export default function Reviews() {
           <LoadingState />
         ) : isError ? (
           <ErrorState message="Yorumlar yüklenemedi." onRetry={() => refetch()} />
-        ) : filteredReviews.length === 0 ? (
+        ) : reviews.length === 0 ? (
           <EmptyState
             icon={<MessageSquare size={26} />}
             title="Yorum bulunamadı"
-            description={search || statusFilter ? 'Filtreye uygun yorum yok.' : 'Henüz hiç yorum yapılmamış.'}
+            description={debounced || statusFilter ? 'Filtreye uygun yorum yok.' : 'Henüz hiç yorum yapılmamış.'}
           />
         ) : (
-          <div className="table-container animate-fadeIn">
+          <>
+          <div className="table-container animate-fadeIn" style={{ opacity: isFetching ? 0.7 : 1 }}>
             <table>
               <thead>
                 <tr>
@@ -192,7 +199,7 @@ export default function Reviews() {
                 </tr>
               </thead>
               <tbody>
-                {filteredReviews.map((review) => (
+                {reviews.map((review) => (
                   <tr key={review.id}>
                     <td>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, fontSize: '0.85rem' }}>
@@ -273,6 +280,8 @@ export default function Reviews() {
               </tbody>
             </table>
           </div>
+          <Pagination offset={offset} limit={LIMIT} count={data?.count ?? 0} onChange={setOffset} />
+          </>
         )}
       </div>
     </>

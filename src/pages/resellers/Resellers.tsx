@@ -15,11 +15,14 @@ import {
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
+import Pagination from '../../components/ui/Pagination'
 import { LoadingState } from '../../components/ui/Spinner'
 import { ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
 import { useDebounce } from '../../lib/useDebounce'
 import { api } from '../../lib/api'
+
+const LIMIT = 20
 
 interface ResellerApplication {
   id: string
@@ -37,15 +40,18 @@ interface ResellerApplication {
 export default function Resellers() {
   const { notify } = useToast()
   const qc = useQueryClient()
+  const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [selectedApp, setSelectedApp] = useState<ResellerApplication | null>(null)
   const debounced = useDebounce(search)
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['resellers', debounced, statusFilter],
+    queryKey: ['resellers', offset, debounced, statusFilter],
     queryFn: () =>
       api.get<{ applications: ResellerApplication[]; count: number }>('/admin/reseller-applications', {
+        limit: LIMIT,
+        offset,
         q: debounced || undefined,
         status: statusFilter || undefined,
       }),
@@ -91,12 +97,18 @@ export default function Resellers() {
               className="header__search-input"
               style={{ width: '100%' }}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setOffset(0)
+              }}
             />
           </div>
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setStatusFilter(e.target.value)
+              setOffset(0)
+            }}
             style={{ width: 'auto', minWidth: '160px' }}
           >
             <option value="">Tüm Durumlar</option>
@@ -118,6 +130,7 @@ export default function Resellers() {
             description={search || statusFilter ? 'Filtreye uygun bayilik başvurusu yok.' : 'Henüz başvuru bulunmamaktadır.'}
           />
         ) : (
+          <>
           <div className="table-container animate-fadeIn" style={{ opacity: isFetching ? 0.7 : 1 }}>
             <table>
               <thead>
@@ -206,6 +219,8 @@ export default function Resellers() {
               </tbody>
             </table>
           </div>
+          <Pagination offset={offset} limit={LIMIT} count={data?.count ?? 0} onChange={setOffset} />
+          </>
         )}
       </div>
 

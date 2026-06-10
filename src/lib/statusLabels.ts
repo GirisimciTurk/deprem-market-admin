@@ -45,6 +45,13 @@ const PRODUCT_STATUS: Record<string, StatusMeta> = {
   rejected: { label: 'Reddedildi', variant: 'danger' },
 }
 
+const RETURN_STATUS: Record<string, StatusMeta> = {
+  requested: { label: 'Talep Edildi', variant: 'warning' },
+  received: { label: 'Teslim Alındı', variant: 'success' },
+  partially_received: { label: 'Kısmi Teslim Alındı', variant: 'info' },
+  canceled: { label: 'İptal', variant: 'danger' },
+}
+
 function lookup(map: Record<string, StatusMeta>, key?: string): StatusMeta {
   if (!key) return { label: '-', variant: 'neutral' }
   return map[key] ?? { label: key, variant: 'neutral' }
@@ -54,5 +61,6 @@ export const orderStatus = (s?: string) => lookup(ORDER_STATUS, s)
 export const paymentStatus = (s?: string) => lookup(PAYMENT_STATUS, s)
 export const fulfillmentStatus = (s?: string) => lookup(FULFILLMENT_STATUS, s)
 export const productStatus = (s?: string) => lookup(PRODUCT_STATUS, s)
+export const returnStatus = (s?: string) => lookup(RETURN_STATUS, s)
 
 export type { BadgeVariant, StatusMeta }
