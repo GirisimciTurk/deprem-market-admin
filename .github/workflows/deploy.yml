@@ -1,0 +1,47 @@
+name: Deploy admin (VPS)
+
+# main'e her push'ta otomatik deploy. VITE_* değerleri sunucudaki
+# docker-compose.yml build-arg'larından gelir; build sunucuda yapılır.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - '.github/**'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-admin
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH anahtarını hazırla
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Kodu sunucuya rsync'le
+        run: |
+          rsync -az --delete \
+            --exclude='.git' --exclude='.github' --exclude='node_modules' \
+            --exclude='dist' --exclude='.env' --exclude='.env.*' \
+            --exclude='coverage' --exclude='*.log' \
+            -e "ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no" \
+            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:/opt/deprem/deprem-market-admin/"
+
+      - name: Build + restart
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" bash -se <<'REMOTE'
+          set -e
+          cd /opt/deprem/deploy
+          docker compose up -d --build admin
+          docker compose ps admin
+          REMOTE
