@@ -17,6 +17,7 @@ import {
   Sparkles,
   AlertTriangle,
   Upload,
+  Truck,
 } from 'lucide-react'
 import { Spinner, LoadingState } from '../../components/ui/Spinner'
 import { ErrorState } from '../../components/ui/StateBox'
@@ -140,6 +141,9 @@ export default function ProductEdit() {
     width: 0,
     height: 0,
     critical_threshold: 10,
+    // Kargo (metadata): free_shipping = bu üründe kargo bedava; shipping_fee = ürün-bazlı kargo ücreti (₺).
+    free_shipping: false,
+    shipping_fee: 0,
   })
 
   // Galeri Resimleri State
@@ -197,6 +201,8 @@ export default function ProductEdit() {
           width: response.product.width || 0,
           height: response.product.height || 0,
           critical_threshold: Number(response.product.metadata?.critical_threshold) || 10,
+          free_shipping: response.product.metadata?.free_shipping === true,
+          shipping_fee: Number(response.product.metadata?.shipping_fee) || 0,
         })
 
         // Initialize gallery images
@@ -265,6 +271,9 @@ export default function ProductEdit() {
         specs: showcaseSpecs,
         highlights: showcaseHighlights,
         critical_threshold: Number(physicalForm.critical_threshold) || 10,
+        // Kargo: free_shipping işaretliyse ücret yok sayılır. shipping_fee ₺ (TL) cinsinden saklanır.
+        free_shipping: !!physicalForm.free_shipping,
+        shipping_fee: physicalForm.free_shipping ? 0 : Number(physicalForm.shipping_fee) || 0,
       }
 
       await api.post(`/admin/products/${productId}`, {
@@ -703,7 +712,41 @@ export default function ProductEdit() {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-primary)', paddingTop: 14 }}>
+                  {/* Kargo (ürün bazlı) */}
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-primary)' }}>
+                    <label className="field__label" style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, marginBottom: 8 }}>
+                      <Truck size={15} /> Kargo
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={physicalForm.free_shipping}
+                        onChange={(e) => setPhysicalForm({ ...physicalForm, free_shipping: e.target.checked })}
+                        style={{ width: 16, height: 16 }}
+                      />
+                      <span style={{ fontWeight: 500 }}>Bu üründe kargo ücretsiz</span>
+                    </label>
+
+                    <div className="field" style={{ maxWidth: '48%' }}>
+                      <label className="field__label">Kargo Ücreti (₺)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        disabled={physicalForm.free_shipping}
+                        value={physicalForm.free_shipping ? 0 : physicalForm.shipping_fee}
+                        onChange={(e) => setPhysicalForm({ ...physicalForm, shipping_fee: parseFloat(e.target.value) || 0 })}
+                      />
+                      <span className="muted" style={{ fontSize: '0.75rem', marginTop: 4, display: 'block' }}>
+                        Bu ürünün kargo ücreti. Sepette birden çok ürün varsa <strong>en yüksek</strong> kargo ücreti uygulanır;
+                        ücretsiz işaretli ürünler 0 sayılır. Boş/0 bırakılırsa varsayılan kargo ücreti geçerli olur.
+                        Sepet tutarı ücretsiz kargo eşiğini aşarsa kargo yine bedava olur.
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-primary)', paddingTop: 14, marginTop: 14 }}>
                     <button
                       className="btn btn--primary"
                       disabled={updateProductMutation.isPending}
