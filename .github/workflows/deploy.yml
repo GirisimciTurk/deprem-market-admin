@@ -39,9 +39,12 @@ jobs:
       - name: Build + restart
         run: |
           ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=no \
+            -o ServerAliveInterval=30 -o ServerAliveCountMax=40 \
             "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" bash -se <<'REMOTE'
           set -e
+          exec 9>/tmp/deprem-deploy.lock; flock 9
           cd /opt/deprem/deploy
-          docker compose up -d --build admin
+          docker compose build admin
+          docker compose up -d --no-deps admin
           docker compose ps admin
           REMOTE
