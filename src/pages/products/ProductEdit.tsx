@@ -58,6 +58,11 @@ interface InvLink {
   inventory_item_id?: string
   inventory?: { id?: string; location_levels?: InvLevel[] }
 }
+interface VariantOptionValue {
+  value: string
+  option?: { id?: string; title?: string }
+  option_id?: string
+}
 interface DetailVariant {
   id: string
   title?: string
@@ -67,6 +72,13 @@ interface DetailVariant {
   prices?: MoneyAmount[]
   inventory_quantity?: number | null
   inventory_items?: InvLink[]
+  options?: VariantOptionValue[]
+}
+
+interface ProductOption {
+  id: string
+  title: string
+  values?: { value: string }[]
 }
 
 interface ProductImage {
@@ -90,13 +102,14 @@ interface DetailResponse {
     origin_country?: string | null
     created_at?: string
     variants?: DetailVariant[]
+    options?: ProductOption[]
     images?: ProductImage[]
     metadata?: Record<string, any> | null
   }
 }
 
 const DETAIL_FIELDS =
-  'id,title,description,handle,status,thumbnail,weight,length,width,height,material,origin_country,created_at,metadata,*images,*variants,*variants.manage_inventory,*variants.sku,*variants.barcode,*variants.prices,*variants.inventory_items,*variants.inventory_items.inventory,*variants.inventory_items.inventory.location_levels'
+  'id,title,description,handle,status,thumbnail,weight,length,width,height,material,origin_country,created_at,metadata,*images,*options,*options.values,*variants,*variants.manage_inventory,*variants.sku,*variants.barcode,*variants.prices,*variants.options,*variants.options.option,*variants.inventory_items,*variants.inventory_items.inventory,*variants.inventory_items.inventory.location_levels'
 
 function tryPriceAmount(prices?: MoneyAmount[]): number | undefined {
   return prices?.find((p) => p.currency_code?.toLowerCase() === 'try')?.amount ?? prices?.[0]?.amount
@@ -225,8 +238,25 @@ export default function ProductEdit() {
 
   const product = data?.product
   const variants = useMemo(() => product?.variants ?? [], [product])
+  const productOptions = useMemo(() => product?.options ?? [], [product])
+  // Tek-varyantlı ürünlerde gizli "Default" seçeneği vardır; gerçek seçenek sayılmaz.
+  const realOptions = useMemo(
+    () => productOptions.filter((o) => o.title?.toLowerCase() !== 'default'),
+    [productOptions]
+  )
 
   const defaultLocationId = locationsData?.stock_locations?.[0]?.id
+
+  // Yeni varyant ekleme formu
+  const [showAddVariant, setShowAddVariant] = useState(false)
+  const [newVariant, setNewVariant] = useState<{
+    optionValues: Record<string, string>
+    price: string
+    stock: string
+    sku: string
+    barcode: string
+    manageInventory: boolean
+  }>({ optionValues: {}, price: '', stock: '', sku: '', barcode: '', manageInventory: true })
 
   // Get drafts state for variants
   const getVariantDraft = (v: DetailVariant) => {
@@ -346,6 +376,86 @@ export default function ProductEdit() {
     },
     onSuccess: () => {
       notify('Varyant detayları ve envanter kaydedildi.')
+      queryClient.invalidateQueries({ queryKey: ['product', productId] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
+  // Yeni varyant ekleme: gerekirse önce seçeneğe yeni değer ekler, sonra varyant
+  // oluşturur, ardından stok seviyesini ayarlar.
+  const addVariantMutation = useMutation({
+    mutationFn: async () => {
+      if (realOptions.length === 0) {
+        throw new Error('Bu ürünün seçeneği yok (tek varyantlı). Varyant eklemek için ürünü seçenekli oluşturun.')
+      }
+      const optionMap: Record<string, string> = {}
+      for (const o of realOptions) {
+        const val = (newVariant.optionValues[o.title] ?? '').trim()
+        if (!val) throw new Error(`"${o.title}" için bir değer girin/seçin.`)
+        optionMap[o.title] = val
+      }
+
+      // Yeni (mevcut olmayan) seçenek değerlerini önce option'a ekle.
+      for (const o of realOptions) {
+        const existing = (o.values ?? []).map((v) => v.value)
+        const val = optionMap[o.title]
+        if (!existing.includes(val)) {
+          await api.post(`/admin/products/${productId}/options/${o.id}`, {
+            title: o.title,
+            values: [...existing, val],
+          })
+        }
+      }
+
+      const price = parseFloat(newVariant.price)
+      const newTitle = Object.values(optionMap).join(' / ') || 'Varyant'
+      await api.post(`/admin/products/${productId}/variants`, {
+        title: newTitle,
+        sku: newVariant.sku.trim() || undefined,
+        barcode: newVariant.barcode.trim() || undefined,
+        manage_inventory: newVariant.manageInventory,
+        options: optionMap,
+        prices: Number.isNaN(price) ? [] : [{ amount: toMinor(price), currency_code: 'try' }],
+      })
+
+      // Stok: yeni varyantın envanter kalemini bulup seviye aç.
+      const n = parseInt(newVariant.stock, 10)
+      if (newVariant.manageInventory && !Number.isNaN(n) && defaultLocationId) {
+        const detail = await api.get<DetailResponse>(`/admin/products/${productId}`, {
+          fields: '*variants,*variants.sku,*variants.title,*variants.inventory_items',
+        })
+        const match = (detail.product.variants ?? []).find((v) =>
+          newVariant.sku.trim() ? v.sku === newVariant.sku.trim() : v.title === newTitle
+        )
+        const iid = match?.inventory_items?.[0]?.inventory_item_id
+        if (iid) {
+          await api
+            .post(`/admin/inventory-items/${iid}/location-levels`, {
+              location_id: defaultLocationId,
+              stocked_quantity: n,
+            })
+            .catch(() => {})
+        }
+      }
+    },
+    onSuccess: () => {
+      notify('Yeni varyant eklendi.')
+      setShowAddVariant(false)
+      setNewVariant({ optionValues: {}, price: '', stock: '', sku: '', barcode: '', manageInventory: true })
+      queryClient.invalidateQueries({ queryKey: ['product', productId] })
+      queryClient.invalidateQueries({ queryKey: ['products'] })
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
+  // Varyant silme (son varyant silinemez — ürün en az bir varyant ister).
+  const deleteVariantMutation = useMutation({
+    mutationFn: async (variantId: string) => {
+      await api.delete(`/admin/products/${productId}/variants/${variantId}`)
+    },
+    onSuccess: () => {
+      notify('Varyant silindi.')
       queryClient.invalidateQueries({ queryKey: ['product', productId] })
       queryClient.invalidateQueries({ queryKey: ['products'] })
     },
@@ -942,7 +1052,23 @@ export default function ProductEdit() {
                           </div>
                         </div>
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-primary)', paddingTop: 14 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border-primary)', paddingTop: 14 }}>
+                          <button
+                            className="btn btn--danger"
+                            disabled={variants.length <= 1 || deleteVariantMutation.isPending}
+                            title={variants.length <= 1 ? 'Son varyant silinemez' : 'Bu varyantı sil'}
+                            onClick={() => {
+                              if (variants.length <= 1) {
+                                notify('Ürünün en az bir varyantı olmalı; son varyant silinemez.', 'warning')
+                                return
+                              }
+                              if (window.confirm(`"${v.title || 'Varyant'}" silinsin mi? Bu işlem geri alınamaz.`)) {
+                                deleteVariantMutation.mutate(v.id)
+                              }
+                            }}
+                          >
+                            <Trash2 size={15} /> Sil
+                          </button>
                           <button
                             className="btn btn--primary"
                             disabled={saving}
@@ -954,6 +1080,112 @@ export default function ProductEdit() {
                       </div>
                     )
                   })}
+
+                  {/* Yeni varyant ekleme */}
+                  {realOptions.length === 0 ? (
+                    <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <AlertTriangle size={16} style={{ color: 'var(--text-tertiary)' }} />
+                      <span className="muted" style={{ fontSize: '0.85rem' }}>
+                        Bu ürün tek varyantlı (seçeneği yok). Beden/Renk gibi varyantlar için ürünü
+                        "Yeni Ürün" akışından seçenekli oluşturun.
+                      </span>
+                    </div>
+                  ) : !showAddVariant ? (
+                    <button className="btn btn--secondary" style={{ alignSelf: 'flex-start' }} onClick={() => setShowAddVariant(true)}>
+                      <Plus size={15} /> Yeni Varyant Ekle
+                    </button>
+                  ) : (
+                    <div className="card animate-fadeIn" style={{ display: 'flex', flexDirection: 'column', gap: 14, border: '1px solid var(--accent-primary)' }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: 10 }}>
+                        Yeni Varyant
+                      </div>
+
+                      {/* Seçenek değerleri */}
+                      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(realOptions.length, 3)}, 1fr)`, gap: 12 }}>
+                        {realOptions.map((o) => {
+                          const existing = (o.values ?? []).map((x) => x.value)
+                          const current = newVariant.optionValues[o.title] ?? ''
+                          const isNew = current !== '' && !existing.includes(current)
+                          return (
+                            <div className="field" key={o.id}>
+                              <label className="field__label">{o.title}</label>
+                              <select
+                                value={isNew ? '__new__' : current}
+                                onChange={(e) => {
+                                  const val = e.target.value === '__new__' ? '' : e.target.value
+                                  setNewVariant((nv) => ({ ...nv, optionValues: { ...nv.optionValues, [o.title]: val } }))
+                                }}
+                              >
+                                <option value="">Seçin...</option>
+                                {existing.map((val) => (
+                                  <option key={val} value={val}>
+                                    {val}
+                                  </option>
+                                ))}
+                                <option value="__new__">+ Yeni değer gir...</option>
+                              </select>
+                              {(isNew || current === '') && existing.length >= 0 && (
+                                <input
+                                  type="text"
+                                  style={{ marginTop: 6 }}
+                                  placeholder={`Yeni ${o.title} değeri`}
+                                  value={isNew ? current : ''}
+                                  onChange={(e) =>
+                                    setNewVariant((nv) => ({ ...nv, optionValues: { ...nv.optionValues, [o.title]: e.target.value } }))
+                                  }
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+
+                      {/* Fiyat / stok / sku / barkod */}
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                        <div className="field">
+                          <label className="field__label">Fiyat (TRY)</label>
+                          <input type="number" step="0.01" value={newVariant.price} onChange={(e) => setNewVariant({ ...newVariant, price: e.target.value })} />
+                        </div>
+                        <div className="field">
+                          <label className="field__label">Stok</label>
+                          <input
+                            type="number"
+                            value={newVariant.manageInventory ? newVariant.stock : ''}
+                            disabled={!newVariant.manageInventory}
+                            placeholder={newVariant.manageInventory ? '' : 'Sınırsız'}
+                            onChange={(e) => setNewVariant({ ...newVariant, stock: e.target.value })}
+                          />
+                        </div>
+                        <div className="field">
+                          <label className="field__label">SKU</label>
+                          <input type="text" value={newVariant.sku} onChange={(e) => setNewVariant({ ...newVariant, sku: e.target.value })} />
+                        </div>
+                        <div className="field">
+                          <label className="field__label">Barkod</label>
+                          <input type="text" value={newVariant.barcode} onChange={(e) => setNewVariant({ ...newVariant, barcode: e.target.value })} />
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.82rem' }}>
+                        <input type="checkbox" checked={newVariant.manageInventory} onChange={(e) => setNewVariant({ ...newVariant, manageInventory: e.target.checked })} />
+                        Stok takibi yapılsın
+                      </label>
+
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, borderTop: '1px solid var(--border-primary)', paddingTop: 14 }}>
+                        <button
+                          className="btn btn--secondary"
+                          onClick={() => {
+                            setShowAddVariant(false)
+                            setNewVariant({ optionValues: {}, price: '', stock: '', sku: '', barcode: '', manageInventory: true })
+                          }}
+                        >
+                          İptal
+                        </button>
+                        <button className="btn btn--primary" disabled={addVariantMutation.isPending} onClick={() => addVariantMutation.mutate()}>
+                          {addVariantMutation.isPending ? <Spinner size={14} /> : <Plus size={15} />} Varyantı Ekle
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

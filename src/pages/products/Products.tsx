@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { Package, Search, Pencil, AlertTriangle, Barcode } from 'lucide-react'
+import { Package, Search, Pencil, AlertTriangle, Barcode, Plus } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
@@ -89,7 +89,15 @@ export default function Products() {
 
   return (
     <>
-      <Header title="Ürünler" subtitle="Ürün kataloğunu, fiyat ve stokları yönet" />
+      <Header
+        title="Ürünler"
+        subtitle="Ürün kataloğunu, fiyat ve stokları yönet"
+        actions={
+          <button className="btn btn--primary" onClick={() => navigate('/products/new')}>
+            <Plus size={16} /> Yeni Ürün
+          </button>
+        }
+      />
       <div style={{ padding: '24px' }}>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
           <div className="header__search" style={{ flex: 1 }}>
