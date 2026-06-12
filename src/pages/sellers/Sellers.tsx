@@ -432,6 +432,7 @@ interface PayoutSummary {
   total_commission: number
   total_returned?: number
   pending_balance: number
+  eligible_balance: number
   paid_total: number
 }
 
@@ -445,7 +446,8 @@ interface SellerOrdersResponse {
 
 function payoutStatusBadge(status: string): StatusMeta {
   if (status === 'paid') return { label: 'Ödendi', variant: 'success' }
-  return { label: 'Ödeme Bekliyor', variant: 'warning' }
+  if (status === 'eligible') return { label: 'Ödenebilir', variant: 'info' }
+  return { label: 'Hakediş Bekliyor', variant: 'warning' }
 }
 
 function fulfillmentStatusBadge(status: string): StatusMeta {
@@ -473,22 +475,37 @@ function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void 
 
   const orders = data?.orders ?? []
   const summary = data?.summary
+  const eligibleBalance = summary?.eligible_balance ?? 0
   const pendingBalance = summary?.pending_balance ?? 0
   const currency = summary?.currency_code
 
   const payoutMutation = useMutation({
-    mutationFn: () => api.post<{ paid_count: number; paid_amount: number }>(`/admin/sellers/${seller.id}/payout`, {}),
+    mutationFn: () =>
+      api.post<{ paid_count: number; paid_amount?: number; message?: string }>(`/admin/sellers/${seller.id}/payout`, {}),
     onSuccess: (r) => {
-      notify(`${r.paid_count} sipariş ödendi (${formatMoney(r.paid_amount, currency)}).`)
+      if (r.paid_count > 0) {
+        notify(`${r.paid_count} sipariş ödendi (${formatMoney(r.paid_amount, currency)}).`)
+      } else {
+        notify(r.message || 'Ödenebilir sipariş bulunmuyor.')
+      }
       qc.invalidateQueries({ queryKey: ['seller-orders', seller.id] })
       qc.invalidateQueries({ queryKey: ['sellers'] })
     },
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
+  const settleMutation = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; settled: number; hakedis_days: number }>('/admin/settle-payouts', {}),
+    onSuccess: (r) => {
+      notify(`${r.settled} sipariş hakediş etti (${r.hakedis_days} gün).`)
+      qc.invalidateQueries({ queryKey: ['seller-orders'] })
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
   function handlePayout() {
-    if (pendingBalance <= 0) return
-    if (window.confirm(`"${seller.name}" için bekleyen tüm siparişleri ödendi olarak işaretlemek istediğinize emin misiniz?`)) {
+    if (eligibleBalance <= 0) return
+    if (window.confirm(`"${seller.name}" için ödenebilir tüm siparişleri ödendi olarak işaretlemek istediğinize emin misiniz?`)) {
       payoutMutation.mutate()
     }
   }
@@ -508,7 +525,8 @@ function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void 
         <SummaryCard label="Toplam Komisyon" value={formatMoney(summary?.total_commission, currency)} />
         <SummaryCard label="İade Edilen" value={formatMoney(summary?.total_returned ?? 0, currency)} />
         <SummaryCard label="Ödenen" value={formatMoney(summary?.paid_total, currency)} />
-        <SummaryCard label="Ödenecek Bakiye" value={formatMoney(pendingBalance, currency)} highlight />
+        <SummaryCard label="Hakediş Bekleyen" value={formatMoney(pendingBalance, currency)} />
+        <SummaryCard label="Ödenebilir Bakiye" value={formatMoney(eligibleBalance, currency)} highlight />
       </div>
 
       {/* Toolbar */}
@@ -522,17 +540,33 @@ function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void 
           style={{ width: 'auto', minWidth: '160px' }}
         >
           <option value="">Tümü</option>
-          <option value="pending">Ödeme Bekleyen</option>
+          <option value="pending">Hakediş Bekleyen</option>
+          <option value="eligible">Ödenebilir</option>
           <option value="paid">Ödenen</option>
         </select>
-        <button
-          className="btn btn--primary"
-          onClick={handlePayout}
-          disabled={pendingBalance <= 0 || payoutMutation.isPending}
-        >
-          <Wallet size={16} /> {payoutMutation.isPending ? 'İşleniyor...' : 'Tüm Bekleyenleri Ödendi İşaretle'}
-        </button>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn--secondary"
+            onClick={() => settleMutation.mutate()}
+            disabled={settleMutation.isPending}
+            title="Hakediş süresi dolan kargolanmış siparişleri ödenebilir yapar"
+          >
+            {settleMutation.isPending ? 'Çalışıyor...' : 'Hakedişi Çalıştır'}
+          </button>
+          <button
+            className="btn btn--primary"
+            onClick={handlePayout}
+            disabled={eligibleBalance <= 0 || payoutMutation.isPending}
+          >
+            <Wallet size={16} /> {payoutMutation.isPending ? 'İşleniyor...' : 'Ödenebilirleri Öde'}
+          </button>
+        </div>
       </div>
+
+      {/* Hakediş note */}
+      <p className="muted" style={{ fontSize: '0.78rem', marginBottom: '16px', marginTop: '-4px' }}>
+        Kargolanan siparişler hakediş süresi (varsayılan 14 gün) sonunda ödenebilir olur; ödeme yalnız "Ödenebilir" tutar için yapılır.
+      </p>
 
       {/* Content */}
       {isLoading ? (
