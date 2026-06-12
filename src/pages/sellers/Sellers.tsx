@@ -430,6 +430,7 @@ interface PayoutSummary {
   currency_code: string
   total_earning: number
   total_commission: number
+  total_returned?: number
   pending_balance: number
   paid_total: number
 }
@@ -505,6 +506,7 @@ function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void 
       >
         <SummaryCard label="Toplam Kazanç" value={formatMoney(summary?.total_earning, currency)} />
         <SummaryCard label="Toplam Komisyon" value={formatMoney(summary?.total_commission, currency)} />
+        <SummaryCard label="İade Edilen" value={formatMoney(summary?.total_returned ?? 0, currency)} />
         <SummaryCard label="Ödenen" value={formatMoney(summary?.paid_total, currency)} />
         <SummaryCard label="Ödenecek Bakiye" value={formatMoney(pendingBalance, currency)} highlight />
       </div>
