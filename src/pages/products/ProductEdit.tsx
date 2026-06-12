@@ -30,7 +30,7 @@ import { API_BASE, getToken } from '../../lib/auth'
 import { toMajor, toMinor } from '../../lib/format'
 import type { MoneyAmount } from '../../lib/types'
 
-type TabType = 'details' | 'physical' | 'gallery' | 'variants' | 'showcase'
+type TabType = 'details' | 'physical' | 'gallery' | 'variants' | 'showcase' | 'i18n'
 
 interface ShowcaseFeature {
   iconName: string
@@ -145,6 +145,9 @@ export default function ProductEdit() {
     thumbnail: '',
   })
 
+  // İngilizce çeviri (metadata.i18n.en) — storefront EN dilinde bunları gösterir.
+  const [i18nForm, setI18nForm] = useState({ en_title: '', en_description: '' })
+
   // Fiziksel Özellikler Form State
   const [physicalForm, setPhysicalForm] = useState({
     material: '',
@@ -217,6 +220,10 @@ export default function ProductEdit() {
           free_shipping: response.product.metadata?.free_shipping === true,
           shipping_fee: Number(response.product.metadata?.shipping_fee) || 0,
         })
+
+        // Initialize EN translations (metadata.i18n.en)
+        const en = (response.product.metadata?.i18n as any)?.en || {}
+        setI18nForm({ en_title: en.title || '', en_description: en.description || '' })
 
         // Initialize gallery images
         setGalleryImages(response.product.images?.map((img) => img.url) || [])
@@ -304,6 +311,15 @@ export default function ProductEdit() {
         // Kargo: free_shipping işaretliyse ücret yok sayılır. shipping_fee ₺ (TL) cinsinden saklanır.
         free_shipping: !!physicalForm.free_shipping,
         shipping_fee: physicalForm.free_shipping ? 0 : Number(physicalForm.shipping_fee) || 0,
+        // İngilizce çeviri (storefront locale=en ise overlay eder). Boşsa alanlar
+        // yine de yazılır; storefront boş başlığı yok sayıp tr'ye düşer.
+        i18n: {
+          ...((product?.metadata?.i18n as any) || {}),
+          en: {
+            title: i18nForm.en_title.trim(),
+            description: i18nForm.en_description.trim(),
+          },
+        },
       }
 
       await api.post(`/admin/products/${productId}`, {
@@ -624,7 +640,48 @@ export default function ProductEdit() {
                 >
                   <Sparkles size={15} /> Showcase & Vitrin
                 </button>
+                <button
+                  className={`tabs-navigation__btn ${activeTab === 'i18n' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('i18n')}
+                >
+                  <Globe size={15} /> İngilizce (EN)
+                </button>
               </div>
+
+              {/* Tab: İngilizce çeviri (metadata.i18n.en) */}
+              {activeTab === 'i18n' && (
+                <div className="card animate-fadeIn" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, borderBottom: '1px solid var(--border-primary)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Globe size={18} /> İngilizce İçerik
+                  </h3>
+                  <p className="muted" style={{ fontSize: '0.85rem', marginTop: -6 }}>
+                    Site İngilizce'ye geçtiğinde bu alanlar gösterilir. Boş bırakılırsa Türkçe metin kullanılır.
+                  </p>
+                  <div className="field">
+                    <label className="field__label">Başlık (EN)</label>
+                    <input
+                      type="text"
+                      placeholder={generalForm.title || 'English title'}
+                      value={i18nForm.en_title}
+                      onChange={(e) => setI18nForm({ ...i18nForm, en_title: e.target.value })}
+                    />
+                  </div>
+                  <div className="field">
+                    <label className="field__label">Açıklama (EN)</label>
+                    <textarea
+                      rows={8}
+                      placeholder="English description"
+                      value={i18nForm.en_description}
+                      onChange={(e) => setI18nForm({ ...i18nForm, en_description: e.target.value })}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-primary)', paddingTop: 14 }}>
+                    <button className="btn btn--primary" disabled={updateProductMutation.isPending} onClick={() => updateProductMutation.mutate()}>
+                      {updateProductMutation.isPending ? <Spinner size={14} /> : <Save size={15} />} Kaydet
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Tab 1: General Details Form */}
               {activeTab === 'details' && (

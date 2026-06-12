@@ -10,6 +10,7 @@ import {
   User,
   Tag,
   Eye,
+  Globe,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
@@ -23,6 +24,11 @@ import { api } from '../../lib/api'
 
 const LIMIT = 20
 
+interface BlogTranslation {
+  title?: string
+  summary?: string
+  content?: string
+}
 interface BlogPost {
   id: string
   title: string
@@ -33,6 +39,7 @@ interface BlogPost {
   author: string
   status: 'draft' | 'published'
   created_at: string
+  translations?: Record<string, BlogTranslation> | null
 }
 
 
@@ -56,6 +63,16 @@ export default function Blog() {
   const [content, setContent] = useState('')
   const [author, setAuthor] = useState('')
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
+  // İngilizce çeviri (translations.en) — storefront EN dilinde gösterir.
+  const [enTitle, setEnTitle] = useState('')
+  const [enSummary, setEnSummary] = useState('')
+  const [enContent, setEnContent] = useState('')
+
+  // EN alanlarından translations objesi kur; hepsi boşsa null (TR'ye düşülür).
+  const buildTranslations = () => {
+    const en = { title: enTitle.trim(), summary: enSummary.trim(), content: enContent.trim() }
+    return en.title || en.summary || en.content ? { en } : null
+  }
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['blog', offset, debounced, statusFilter],
@@ -104,6 +121,7 @@ export default function Blog() {
 
   const handleOpenCreate = () => {
     setTitle(''); setCategory('Deprem Hazırlığı'); setSummary(''); setContent(''); setAuthor('Admin'); setStatus('draft')
+    setEnTitle(''); setEnSummary(''); setEnContent('')
     setIsCreateOpen(true)
   }
 
@@ -113,12 +131,14 @@ export default function Blog() {
       notify('Lütfen gerekli alanları doldurun.', 'error')
       return
     }
-    createMutation.mutate({ title, category, summary, content, author, status })
+    createMutation.mutate({ title, category, summary, content, author, status, translations: buildTranslations() } as any)
   }
 
   const handleOpenEdit = (post: BlogPost) => {
     setEditingPost(post)
     setTitle(post.title); setCategory(post.category || 'Genel'); setSummary(post.summary || ''); setContent(post.content || ''); setAuthor(post.author || ''); setStatus(post.status)
+    const en = post.translations?.en || {}
+    setEnTitle(en.title || ''); setEnSummary(en.summary || ''); setEnContent(en.content || '')
   }
 
   const handleUpdatePost = (e: React.FormEvent) => {
@@ -128,7 +148,7 @@ export default function Blog() {
       notify('Lütfen gerekli alanları doldurun.', 'error')
       return
     }
-    updateMutation.mutate({ id: editingPost.id, body: { title, category, summary, content, author, status } })
+    updateMutation.mutate({ id: editingPost.id, body: { title, category, summary, content, author, status, translations: buildTranslations() } as any })
   }
 
   const handleDeletePost = (id: string) => {
@@ -136,6 +156,18 @@ export default function Blog() {
       deleteMutation.mutate(id)
     }
   }
+
+  // İngilizce alanlar — create + edit formlarında ortak kullanılır.
+  const renderEnFields = () => (
+    <div className="field" style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 16, marginTop: 4 }}>
+      <label className="field__label" style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+        <Globe size={14} /> İngilizce (EN) — boş bırakılırsa Türkçe gösterilir
+      </label>
+      <input type="text" placeholder="Title (EN)" value={enTitle} onChange={(e) => setEnTitle(e.target.value)} style={{ marginBottom: 8 }} />
+      <input type="text" placeholder="Summary (EN)" value={enSummary} onChange={(e) => setEnSummary(e.target.value)} style={{ marginBottom: 8 }} />
+      <textarea rows={6} placeholder="Content (EN)" value={enContent} onChange={(e) => setEnContent(e.target.value)} />
+    </div>
+  )
 
   return (
     <>
@@ -355,6 +387,8 @@ export default function Blog() {
               </select>
             </div>
 
+            {renderEnFields()}
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', borderTop: '1px solid var(--border-primary)', paddingTop: '16px' }}>
               <button type="button" className="btn btn--secondary" onClick={() => setIsCreateOpen(false)}>
                 İptal
@@ -431,6 +465,8 @@ export default function Blog() {
                 <option value="published">Yayınla</option>
               </select>
             </div>
+
+            {renderEnFields()}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px', borderTop: '1px solid var(--border-primary)', paddingTop: '16px' }}>
               <button type="button" className="btn btn--secondary" onClick={() => setEditingPost(null)}>
