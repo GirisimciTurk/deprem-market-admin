@@ -15,7 +15,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 }
 
 // Yalnızca admin'in erişebildiği yollar
-export const ADMIN_ONLY_PATHS = ['/settings', '/promotions', '/customers', '/resellers']
+export const ADMIN_ONLY_PATHS = ['/settings', '/promotions', '/customers', '/resellers', '/sellers', '/product-approvals']
 
 export function normalizeRole(raw: unknown): Role {
   return raw === 'staff' ? 'staff' : 'admin'

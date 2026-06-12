@@ -23,6 +23,8 @@ const Returns = lazy(() => import('./pages/returns/Returns'))
 const Customers = lazy(() => import('./pages/customers/Customers'))
 const Blog = lazy(() => import('./pages/blog/Blog'))
 const Resellers = lazy(() => import('./pages/resellers/Resellers'))
+const Sellers = lazy(() => import('./pages/sellers/Sellers'))
+const ProductApprovals = lazy(() => import('./pages/product-approvals/ProductApprovals'))
 const Promotions = lazy(() => import('./pages/promotions/Promotions'))
 const Reviews = lazy(() => import('./pages/reviews/Reviews'))
 const SettingsPage = lazy(() => import('./pages/settings/Settings'))
@@ -60,6 +62,8 @@ export default function App() {
                     <Route path="/returns" element={<Returns />} />
                     <Route path="/customers" element={<RoleGuard><Customers /></RoleGuard>} />
                     <Route path="/blog" element={<Blog />} />
+                    <Route path="/sellers" element={<RoleGuard><Sellers /></RoleGuard>} />
+                    <Route path="/product-approvals" element={<RoleGuard><ProductApprovals /></RoleGuard>} />
                     <Route path="/resellers" element={<RoleGuard><Resellers /></RoleGuard>} />
                     <Route path="/promotions" element={<RoleGuard><Promotions /></RoleGuard>} />
                     <Route path="/reviews" element={<Reviews />} />

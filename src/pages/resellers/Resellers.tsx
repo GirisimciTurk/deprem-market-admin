@@ -70,6 +70,23 @@ export default function Resellers() {
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
+  const convertMutation = useMutation({
+    mutationFn: (id: string) => api.post(`/admin/sellers/from-application/${id}`),
+    onSuccess: () => {
+      notify('Başvuru onaylandı ve satıcı oluşturuldu. "Satıcılar" sayfasından yönetebilirsiniz.')
+      qc.invalidateQueries({ queryKey: ['resellers'] })
+      qc.invalidateQueries({ queryKey: ['sellers'] })
+      setSelectedApp(null)
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
+  const handleConvert = (id: string) => {
+    if (window.confirm('Bu başvurudan bir satıcı oluşturulsun mu? Başvuru onaylanacak ve satıcı aktif olarak eklenecektir.')) {
+      convertMutation.mutate(id)
+    }
+  }
+
   const handleApprove = (id: string) => {
     if (window.confirm('Bu bayilik başvurusunu onaylamak istediğinize emin misiniz?')) {
       statusMutation.mutate({ id, status: 'approved' })
@@ -305,6 +322,15 @@ export default function Resellers() {
                       Başvuruyu Onayla
                     </button>
                   </>
+                )}
+                {selectedApp.status !== 'rejected' && (
+                  <button
+                    className="btn btn--primary"
+                    onClick={() => handleConvert(selectedApp.id)}
+                    disabled={convertMutation.isPending}
+                  >
+                    {convertMutation.isPending ? 'Oluşturuluyor...' : 'Satıcıya Dönüştür'}
+                  </button>
                 )}
               </div>
             </div>
