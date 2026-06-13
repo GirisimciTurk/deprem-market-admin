@@ -23,6 +23,7 @@ const Blog = lazy(() => import('./pages/blog/Blog'))
 const Resellers = lazy(() => import('./pages/resellers/Resellers'))
 const Sellers = lazy(() => import('./pages/sellers/Sellers'))
 const SellerDetail = lazy(() => import('./pages/sellers/SellerDetail'))
+const SellerScorecards = lazy(() => import('./pages/seller-scorecards/SellerScorecards'))
 const SellerContracts = lazy(() => import('./pages/seller-contracts/SellerContracts'))
 const ProductApprovals = lazy(() => import('./pages/product-approvals/ProductApprovals'))
 const CommissionRules = lazy(() => import('./pages/commission-rules/CommissionRules'))
@@ -66,6 +67,7 @@ export default function App() {
                     <Route path="/blog" element={<Blog />} />
                     <Route path="/sellers" element={<RoleGuard><Sellers /></RoleGuard>} />
                     <Route path="/sellers/:id" element={<RoleGuard><SellerDetail /></RoleGuard>} />
+                    <Route path="/seller-scorecards" element={<RoleGuard><SellerScorecards /></RoleGuard>} />
                     <Route path="/product-approvals" element={<RoleGuard><ProductApprovals /></RoleGuard>} />
                     <Route path="/commission-rules" element={<RoleGuard><CommissionRules /></RoleGuard>} />
                     <Route path="/invoices" element={<RoleGuard><Invoices /></RoleGuard>} />

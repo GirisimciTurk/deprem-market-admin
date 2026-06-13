@@ -19,6 +19,8 @@ import {
   Info,
   KeyRound,
   Copy,
+  Award,
+  TrendingUp,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
@@ -29,6 +31,8 @@ import { useToast } from '../../components/ui/toast-context'
 import { api } from '../../lib/api'
 import { formatMoney, formatDate } from '../../lib/format'
 import type { StatusMeta } from '../../lib/statusLabels'
+import { ScoreRing, MetricGrid, AnalyticsView } from '../../components/Scorecard'
+import type { SellerScorecard, SellerAnalytics } from '../../lib/scorecard'
 
 type SellerStatus = 'pending' | 'active' | 'suspended'
 type CarrierCode = 'aras' | 'yurtici' | 'mng' | 'ptt'
@@ -120,10 +124,11 @@ function productStatusBadge(status: string): StatusMeta {
   return { label: status, variant: 'neutral' }
 }
 
-type Tab = 'overview' | 'settings' | 'orders' | 'products' | 'reviews' | 'returns'
+type Tab = 'overview' | 'performance' | 'settings' | 'orders' | 'products' | 'reviews' | 'returns'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'overview', label: 'Genel Bakış', icon: <Store size={15} /> },
+  { id: 'performance', label: 'Karne & Analitik', icon: <Award size={15} /> },
   { id: 'settings', label: 'Bilgiler & Ayarlar', icon: <Info size={15} /> },
   { id: 'orders', label: 'Siparişler & Ödeme', icon: <Wallet size={15} /> },
   { id: 'products', label: 'Ürünler', icon: <Package size={15} /> },
@@ -259,6 +264,7 @@ export default function SellerDetail() {
         </div>
 
         {tab === 'overview' && <OverviewTab data={data} cur={cur} />}
+        {tab === 'performance' && <PerformanceTab sellerId={id} />}
         {tab === 'settings' && <SettingsTab seller={s} hasLogin={data.has_login} onSaved={() => { qc.invalidateQueries({ queryKey: ['seller-detail', id] }); qc.invalidateQueries({ queryKey: ['sellers'] }) }} />}
         {tab === 'orders' && <OrdersTab sellerId={id} sellerName={s.name} />}
         {tab === 'products' && <ProductsTab products={data.products} />}
@@ -810,6 +816,53 @@ function ReturnsTab({ returns }: { returns: SellerReturnRow[] }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+/* ---------- Performance (Karne & Analitik) ---------- */
+
+function PerformanceTab({ sellerId }: { sellerId: string }) {
+  const [days, setDays] = useState(30)
+  const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['seller-scorecard', sellerId, days],
+    queryFn: () =>
+      api.get<{ scorecard: SellerScorecard; analytics: SellerAnalytics }>(
+        `/admin/sellers/${sellerId}/scorecard`,
+        { days }
+      ),
+    placeholderData: keepPreviousData,
+  })
+
+  if (isLoading) return <LoadingState label="Karne yükleniyor..." />
+  if (isError) return <ErrorState message={(error as Error)?.message} onRetry={() => refetch()} />
+  if (!data) return null
+
+  const { scorecard: sc, analytics: an } = data
+
+  if (!sc.has_data) {
+    return (
+      <div className="card" style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--text-tertiary)', fontSize: '0.9rem' }}>
+        Bu satıcı için henüz karne oluşturacak sipariş yok.
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ opacity: isFetching ? 0.7 : 1 }}>
+      <ScoreRing sc={sc} />
+      <MetricGrid sc={sc} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '24px 0 14px', flexWrap: 'wrap', gap: 10 }}>
+        <h3 style={{ fontSize: '1.05rem', fontWeight: 600, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <TrendingUp size={18} /> Satış Analitiği
+        </h3>
+        <select value={days} onChange={(e) => setDays(Number(e.target.value))} style={{ width: 'auto', minWidth: 120 }}>
+          <option value={7}>Son 7 gün</option>
+          <option value={30}>Son 30 gün</option>
+          <option value={90}>Son 90 gün</option>
+        </select>
+      </div>
+      <AnalyticsView an={an} />
     </div>
   )
 }
