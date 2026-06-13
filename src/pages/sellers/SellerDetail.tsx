@@ -449,7 +449,7 @@ function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; hasLogin: 
         </Grid>
       </Section>
 
-      {!seller.is_house && (
+      {(
         <Section title="Satıcı Paneli Girişi">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <Badge status={hasLogin ? { label: 'Giriş Tanımlı', variant: 'success' } : { label: 'Giriş Yok', variant: 'warning' }} />

@@ -97,6 +97,24 @@
   overflow-y: auto;
 }
 
+.sidebar__group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar__group + .sidebar__group {
+  margin-top: 10px;
+}
+.sidebar__group-title {
+  font-size: 0.66rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-tertiary);
+  padding: 8px 14px 4px;
+  user-select: none;
+}
+
 .sidebar__link {
   display: flex;
   align-items: center;

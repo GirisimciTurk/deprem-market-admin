@@ -12,8 +12,6 @@ import {
   FileText,
   Handshake,
   MessageSquare,
-  Warehouse,
-  History,
   Percent,
   Undo2,
   Store,
@@ -30,25 +28,52 @@ import {
 } from 'lucide-react'
 import './Sidebar.css'
 
-const navItems = [
-  { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { path: '/products', icon: Package, label: 'Ürünler' },
-  { path: '/inventory', icon: Warehouse, label: 'Depo & Envanter' },
-  { path: '/stock-movements', icon: History, label: 'Stok Geçmişi' },
-  { path: '/orders', icon: ShoppingCart, label: 'Siparişler' },
-  { path: '/returns', icon: Undo2, label: 'İadeler' },
-  { path: '/promotions', icon: Percent, label: 'Promosyonlar' },
-  { path: '/customers', icon: Users, label: 'Müşteriler' },
-  { path: '/blog', icon: FileText, label: 'Blog' },
-  { path: '/sellers', icon: Store, label: 'Satıcılar' },
-  { path: '/commission-rules', icon: Calculator, label: 'Komisyon Oranları' },
-  { path: '/product-approvals', icon: ClipboardCheck, label: 'Ürün Onayları' },
-  { path: '/invoices', icon: Receipt, label: 'Faturalar' },
-  { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
-  { path: '/reviews', icon: MessageSquare, label: 'Yorumlar' },
-  { path: '/seller-reviews', icon: Star, label: 'Satıcı Değerlendirmeleri' },
-  { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
-  { path: '/settings', icon: Settings, label: 'Ayarlar' },
+// Admin = KONTROL MERKEZİ: gözetim + moderasyon + yapılandırma + ödeme. Satış operasyonu
+// (ürün ekle/düzenle, stok, kargolama) satıcı panelinde yürür. Bu yüzden Depo & Envanter
+// ve Stok Geçmişi operasyonel nav'ları kaldırıldı; Ürünler/Siparişler/İadeler "Gözetim".
+const navGroups: { title: string | null; items: { path: string; icon: typeof Package; label: string }[] }[] = [
+  {
+    title: null,
+    items: [{ path: '/', icon: LayoutDashboard, label: 'Genel Bakış' }],
+  },
+  {
+    title: 'Pazaryeri',
+    items: [
+      { path: '/sellers', icon: Store, label: 'Satıcılar' },
+      { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
+      { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
+      { path: '/commission-rules', icon: Calculator, label: 'Komisyon Oranları' },
+    ],
+  },
+  {
+    title: 'Moderasyon',
+    items: [
+      { path: '/product-approvals', icon: ClipboardCheck, label: 'Ürün Onayları' },
+      { path: '/reviews', icon: MessageSquare, label: 'Yorumlar' },
+      { path: '/seller-reviews', icon: Star, label: 'Satıcı Değerlendirmeleri' },
+    ],
+  },
+  {
+    title: 'Gözetim',
+    items: [
+      { path: '/products', icon: Package, label: 'Ürünler' },
+      { path: '/orders', icon: ShoppingCart, label: 'Siparişler' },
+      { path: '/returns', icon: Undo2, label: 'İadeler' },
+      { path: '/invoices', icon: Receipt, label: 'Faturalar' },
+    ],
+  },
+  {
+    title: 'Müşteri & İçerik',
+    items: [
+      { path: '/customers', icon: Users, label: 'Müşteriler' },
+      { path: '/promotions', icon: Percent, label: 'Promosyonlar' },
+      { path: '/blog', icon: FileText, label: 'Blog' },
+    ],
+  },
+  {
+    title: 'Sistem',
+    items: [{ path: '/settings', icon: Settings, label: 'Ayarlar' }],
+  },
 ]
 
 const SIDEBAR_KEY = 'dm_sidebar_collapsed'
@@ -65,7 +90,10 @@ export default function Sidebar() {
     })
   const location = useLocation()
   const { role } = useCurrentUser()
-  const visibleItems = navItems.filter((item) => canAccess(role, item.path))
+  // Her grubu role göre filtrele; tamamen boşalan grubu (ör. staff) gizle.
+  const visibleGroups = navGroups
+    .map((g) => ({ ...g, items: g.items.filter((item) => canAccess(role, item.path)) }))
+    .filter((g) => g.items.length > 0)
 
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
@@ -77,7 +105,7 @@ export default function Sidebar() {
           {!collapsed && (
             <div className="sidebar__logo-text">
               <span className="sidebar__logo-title">Deprem Market</span>
-              <span className="sidebar__logo-subtitle">Admin Panel</span>
+              <span className="sidebar__logo-subtitle">Kontrol Merkezi</span>
             </div>
           )}
         </div>
@@ -91,24 +119,31 @@ export default function Sidebar() {
       </div>
 
       <nav className="sidebar__nav">
-        {visibleItems.map((item) => {
-          const isActive = item.path === '/'
-            ? location.pathname === '/'
-            : location.pathname.startsWith(item.path)
+        {visibleGroups.map((group, gi) => (
+          <div key={group.title ?? `g${gi}`} className="sidebar__group">
+            {group.title && !collapsed && (
+              <div className="sidebar__group-title">{group.title}</div>
+            )}
+            {group.items.map((item) => {
+              const isActive = item.path === '/'
+                ? location.pathname === '/'
+                : location.pathname.startsWith(item.path)
 
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
-              title={collapsed ? item.label : undefined}
-            >
-              <item.icon size={20} />
-              {!collapsed && <span>{item.label}</span>}
-              {isActive && <div className="sidebar__link-indicator" />}
-            </NavLink>
-          )
-        })}
+              return (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={`sidebar__link ${isActive ? 'sidebar__link--active' : ''}`}
+                  title={collapsed ? item.label : undefined}
+                >
+                  <item.icon size={20} />
+                  {!collapsed && <span>{item.label}</span>}
+                  {isActive && <div className="sidebar__link-indicator" />}
+                </NavLink>
+              )
+            })}
+          </div>
+        ))}
       </nav>
 
       <div className="sidebar__footer">
