@@ -11,6 +11,7 @@ import {
   Percent,
   Home,
   Wallet,
+  Star,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
@@ -41,7 +42,16 @@ interface Seller {
   iban: string | null
   account_holder: string | null
   is_house: boolean
+  rating_sum?: number
+  rating_count?: number
   created_at: string
+}
+
+function sellerRating(s: Seller): { avg: number; count: number } | null {
+  const count = s.rating_count ?? 0
+  if (count <= 0) return null
+  const sum = s.rating_sum ?? 0
+  return { avg: Math.round((sum / count) * 10) / 10, count }
 }
 
 interface SellerForm {
@@ -251,6 +261,7 @@ export default function Sellers() {
                     <th>Satıcı</th>
                     <th>İletişim</th>
                     <th>Komisyon</th>
+                    <th>Puan</th>
                     <th>Durum</th>
                     <th style={{ textAlign: 'right' }}>İşlemler</th>
                   </tr>
@@ -280,6 +291,19 @@ export default function Sellers() {
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.875rem' }}>
                           <Percent size={13} className="muted" /> %{s.commission_rate}
                         </span>
+                      </td>
+                      <td>
+                        {(() => {
+                          const r = sellerRating(s)
+                          return r ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.875rem' }}>
+                              <Star size={13} style={{ fill: 'var(--accent-warning)', color: 'var(--accent-warning)' }} />
+                              {r.avg.toFixed(1)} <span className="muted">({r.count})</span>
+                            </span>
+                          ) : (
+                            <span className="muted" style={{ fontSize: '0.85rem' }}>—</span>
+                          )
+                        })()}
                       </td>
                       <td>
                         <Badge status={statusBadge(s.status)} />
@@ -422,6 +446,9 @@ interface SellerOrder {
   items: unknown
   fulfillment_status: string
   payout_status: string
+  carrier: string | null
+  tracking_number: string | null
+  tracking_url: string | null
   paid_at: string | null
   created_at: string
 }
@@ -604,7 +631,26 @@ function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void 
                     <td className="nowrap">{formatMoney(o.subtotal, o.currency_code)}</td>
                     <td className="nowrap">{formatMoney(o.commission_amount, o.currency_code)}</td>
                     <td className="nowrap" style={{ fontWeight: 600 }}>{formatMoney(o.seller_earning, o.currency_code)}</td>
-                    <td><Badge status={fulfillmentStatusBadge(o.fulfillment_status)} /></td>
+                    <td>
+                      <Badge status={fulfillmentStatusBadge(o.fulfillment_status)} />
+                      {o.tracking_number && (
+                        <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>
+                          <span className="muted">
+                            {o.carrier ? `${o.carrier}: ` : ''}{o.tracking_number}
+                          </span>
+                          {o.tracking_url && (
+                            <a
+                              href={o.tracking_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ display: 'block', color: 'var(--accent-primary)' }}
+                            >
+                              Kargom Nerede?
+                            </a>
+                          )}
+                        </div>
+                      )}
+                    </td>
                     <td><Badge status={payoutStatusBadge(o.payout_status)} /></td>
                   </tr>
                 ))}

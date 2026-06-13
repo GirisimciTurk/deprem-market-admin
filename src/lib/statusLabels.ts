@@ -45,6 +45,12 @@ const PRODUCT_STATUS: Record<string, StatusMeta> = {
   rejected: { label: 'Reddedildi', variant: 'danger' },
 }
 
+const SELLER_REVIEW_STATUS: Record<string, StatusMeta> = {
+  pending: { label: 'Onay Bekliyor', variant: 'warning' },
+  approved: { label: 'Yayında', variant: 'success' },
+  spam: { label: 'Spam', variant: 'danger' },
+}
+
 const RETURN_STATUS: Record<string, StatusMeta> = {
   requested: { label: 'Talep Edildi', variant: 'warning' },
   received: { label: 'Teslim Alındı', variant: 'success' },
@@ -62,5 +68,6 @@ export const paymentStatus = (s?: string) => lookup(PAYMENT_STATUS, s)
 export const fulfillmentStatus = (s?: string) => lookup(FULFILLMENT_STATUS, s)
 export const productStatus = (s?: string) => lookup(PRODUCT_STATUS, s)
 export const returnStatus = (s?: string) => lookup(RETURN_STATUS, s)
+export const sellerReviewStatus = (s?: string) => lookup(SELLER_REVIEW_STATUS, s)
 
 export type { BadgeVariant, StatusMeta }

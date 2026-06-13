@@ -20,6 +20,7 @@ import {
   Calculator,
   ClipboardCheck,
   Receipt,
+  Star,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -44,6 +45,7 @@ const navItems = [
   { path: '/invoices', icon: Receipt, label: 'Faturalar' },
   { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
   { path: '/reviews', icon: MessageSquare, label: 'Yorumlar' },
+  { path: '/seller-reviews', icon: Star, label: 'Satıcı Değerlendirmeleri' },
   { path: '/settings', icon: Settings, label: 'Ayarlar' },
 ]
 
