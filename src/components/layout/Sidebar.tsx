@@ -23,6 +23,7 @@ import {
   FileSignature,
   Settings,
   Award,
+  Tag,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -43,6 +44,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
     items: [
       { path: '/sellers', icon: Store, label: 'Satıcılar' },
       { path: '/seller-scorecards', icon: Award, label: 'Performans Karneleri' },
+      { path: '/seller-campaigns', icon: Tag, label: 'Kampanyalar' },
       { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
       { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
       { path: '/commission-rules', icon: Calculator, label: 'Komisyon Oranları' },
