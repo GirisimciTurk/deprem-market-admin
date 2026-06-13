@@ -18,6 +18,8 @@ import {
   Trash2,
   ExternalLink,
   Info,
+  KeyRound,
+  Copy,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
@@ -83,6 +85,7 @@ interface SellerReturnRow {
 
 interface SellerDetailResponse {
   seller: Seller
+  has_login: boolean
   product_stats: { total: number; published: number; proposed: number; rejected: number }
   order_stats: {
     count: number
@@ -257,7 +260,7 @@ export default function SellerDetail() {
         </div>
 
         {tab === 'overview' && <OverviewTab data={data} cur={cur} />}
-        {tab === 'settings' && <SettingsTab seller={s} onSaved={() => { qc.invalidateQueries({ queryKey: ['seller-detail', id] }); qc.invalidateQueries({ queryKey: ['sellers'] }) }} />}
+        {tab === 'settings' && <SettingsTab seller={s} hasLogin={data.has_login} onSaved={() => { qc.invalidateQueries({ queryKey: ['seller-detail', id] }); qc.invalidateQueries({ queryKey: ['sellers'] }) }} />}
         {tab === 'orders' && <OrdersTab sellerId={id} sellerName={s.name} />}
         {tab === 'products' && <ProductsTab products={data.products} />}
         {tab === 'reviews' && <ReviewsTab sellerId={id} />}
@@ -345,8 +348,10 @@ interface SettingsForm {
   status: SellerStatus
 }
 
-function SettingsTab({ seller, onSaved }: { seller: Seller; onSaved: () => void }) {
+function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; hasLogin: boolean; onSaved: () => void }) {
   const { notify } = useToast()
+  const qc = useQueryClient()
+  const [inviteLink, setInviteLink] = useState<string | null>(null)
   const [form, setForm] = useState<SettingsForm>({
     name: seller.name,
     legal_name: seller.legal_name ?? '',
@@ -379,6 +384,16 @@ function SettingsTab({ seller, onSaved }: { seller: Seller; onSaved: () => void 
         status: form.status,
       }),
     onSuccess: () => { notify('Satıcı bilgileri kaydedildi.'); onSaved() },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
+  const invite = useMutation({
+    mutationFn: () => api.post<{ ok: boolean; email: string; created: boolean; reset_link: string }>(`/admin/sellers/${seller.id}/invite`, {}),
+    onSuccess: (r) => {
+      setInviteLink(r.reset_link)
+      notify('Şifre belirleme bağlantısı e-posta ile gönderildi.')
+      qc.invalidateQueries({ queryKey: ['seller-detail', seller.id] })
+    },
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
@@ -433,6 +448,52 @@ function SettingsTab({ seller, onSaved }: { seller: Seller; onSaved: () => void 
           <Field label="Hesap Sahibi"><input value={form.account_holder} onChange={(e) => set('account_holder', e.target.value)} /></Field>
         </Grid>
       </Section>
+
+      {!seller.is_house && (
+        <Section title="Satıcı Paneli Girişi">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <Badge status={hasLogin ? { label: 'Giriş Tanımlı', variant: 'success' } : { label: 'Giriş Yok', variant: 'warning' }} />
+            <span className="muted" style={{ fontSize: '0.84rem' }}>
+              {hasLogin
+                ? 'Satıcının panel girişi mevcut. Aşağıdaki buton yeni bir şifre belirleme bağlantısı gönderir.'
+                : 'Satıcının henüz panel girişi yok. Şifre belirleme bağlantısını e-posta ile gönderin.'}
+            </span>
+          </div>
+          {!seller.email && (
+            <p style={{ fontSize: '0.82rem', color: 'var(--accent-warning)' }}>
+              Bağlantı gönderebilmek için önce satıcıya bir e-posta adresi ekleyip kaydedin.
+            </p>
+          )}
+          <div>
+            <button
+              className="btn btn--primary"
+              disabled={invite.isPending || !seller.email}
+              onClick={() => {
+                const msg = hasLogin
+                  ? 'Satıcıya yeni bir şifre belirleme bağlantısı e-posta ile gönderilecek. Devam edilsin mi?'
+                  : 'Satıcıya panel girişi hazırlanıp şifre belirleme bağlantısı e-posta ile gönderilecek. Devam edilsin mi?'
+                if (window.confirm(msg)) invite.mutate()
+              }}
+            >
+              <KeyRound size={16} /> {invite.isPending ? 'Gönderiliyor...' : hasLogin ? 'Şifre Bağlantısı Tekrar Gönder' : 'Şifre Belirleme Bağlantısı Gönder'}
+            </button>
+          </div>
+          {inviteLink && (
+            <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '14px 16px' }}>
+              <div className="muted" style={{ fontSize: '0.76rem', marginBottom: '6px' }}>
+                Şifre belirleme bağlantısı (e-posta ile gönderildi — SMTP sorunu olursa elle iletebilirsiniz):
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <code style={{ background: '#0f172a', color: '#fff', padding: '5px 12px', borderRadius: '6px', fontSize: '0.78rem', wordBreak: 'break-all', flex: 1 }}>{inviteLink}</code>
+                <button className="btn btn--secondary btn--icon btn--sm" title="Kopyala"
+                  onClick={() => { navigator.clipboard?.writeText(inviteLink); notify('Bağlantı kopyalandı.') }}>
+                  <Copy size={14} />
+                </button>
+              </div>
+            </div>
+          )}
+        </Section>
+      )}
 
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button className="btn btn--primary" onClick={() => { if (!form.name.trim()) { notify('Satıcı adı zorunludur.', 'error'); return } save.mutate() }} disabled={save.isPending}>
