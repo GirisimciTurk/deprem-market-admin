@@ -21,6 +21,7 @@ import {
   ClipboardCheck,
   Receipt,
   Star,
+  FileSignature,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -46,6 +47,7 @@ const navItems = [
   { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
   { path: '/reviews', icon: MessageSquare, label: 'Yorumlar' },
   { path: '/seller-reviews', icon: Star, label: 'Satıcı Değerlendirmeleri' },
+  { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
   { path: '/settings', icon: Settings, label: 'Ayarlar' },
 ]
 
