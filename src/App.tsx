@@ -30,6 +30,7 @@ const Invoices = lazy(() => import('./pages/invoices/Invoices'))
 const Promotions = lazy(() => import('./pages/promotions/Promotions'))
 const Reviews = lazy(() => import('./pages/reviews/Reviews'))
 const SellerReviews = lazy(() => import('./pages/seller-reviews/SellerReviews'))
+const Questions = lazy(() => import('./pages/questions/Questions'))
 const SettingsPage = lazy(() => import('./pages/settings/Settings'))
 const WarehouseInventory = lazy(() => import('./pages/inventory/WarehouseInventory'))
 const StockMovements = lazy(() => import('./pages/stock-movements/StockMovements'))
@@ -72,6 +73,7 @@ export default function App() {
                     <Route path="/promotions" element={<RoleGuard><Promotions /></RoleGuard>} />
                     <Route path="/reviews" element={<Reviews />} />
                     <Route path="/seller-reviews" element={<RoleGuard><SellerReviews /></RoleGuard>} />
+                    <Route path="/product-questions" element={<RoleGuard><Questions /></RoleGuard>} />
                     <Route path="/seller-contracts" element={<RoleGuard><SellerContracts /></RoleGuard>} />
                     <Route path="/inventory" element={<WarehouseInventory />} />
                     <Route path="/stock-movements" element={<StockMovements />} />

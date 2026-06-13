@@ -12,6 +12,7 @@ import {
   FileText,
   Handshake,
   MessageSquare,
+  MessageCircleQuestion,
   Percent,
   Undo2,
   Store,
@@ -50,6 +51,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
     items: [
       { path: '/product-approvals', icon: ClipboardCheck, label: 'Ürün Onayları' },
       { path: '/reviews', icon: MessageSquare, label: 'Yorumlar' },
+      { path: '/product-questions', icon: MessageCircleQuestion, label: 'Sorular' },
       { path: '/seller-reviews', icon: Star, label: 'Satıcı Değerlendirmeleri' },
     ],
   },
