@@ -35,10 +35,9 @@ import { ScoreRing, MetricGrid, AnalyticsView } from '../../components/Scorecard
 import type { SellerScorecard, SellerAnalytics } from '../../lib/scorecard'
 
 type SellerStatus = 'pending' | 'active' | 'suspended'
-type CarrierCode = 'aras' | 'yurtici' | 'mng' | 'ptt'
+type CarrierCode = 'yurtici' | 'mng' | 'ptt'
 
 const CARRIERS: { code: CarrierCode; label: string }[] = [
-  { code: 'aras', label: 'Aras Kargo' },
   { code: 'yurtici', label: 'Yurtiçi Kargo' },
   { code: 'mng', label: 'MNG Kargo' },
   { code: 'ptt', label: 'PTT Kargo' },

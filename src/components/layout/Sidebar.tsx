@@ -24,6 +24,7 @@ import {
   Settings,
   Award,
   Tag,
+  Truck,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -48,6 +49,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
       { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
       { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
       { path: '/commission-rules', icon: Calculator, label: 'Komisyon Oranları' },
+      { path: '/cargo-tariff', icon: Truck, label: 'Kargo Tarifesi' },
     ],
   },
   {

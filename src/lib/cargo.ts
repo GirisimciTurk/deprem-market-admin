@@ -9,11 +9,6 @@ interface CarrierDef {
 }
 
 const CARRIERS: Record<string, CarrierDef> = {
-  aras: {
-    name: 'Aras Kargo',
-    trackingUrlTemplate:
-      'https://kargotakip.araskargo.com.tr/?gonderitakipno={code}',
-  },
   yurtici: {
     name: 'Yurtiçi Kargo',
     trackingUrlTemplate:
@@ -30,7 +25,7 @@ const CARRIERS: Record<string, CarrierDef> = {
   },
 }
 
-const DEFAULT_CARRIER = 'aras'
+const DEFAULT_CARRIER = 'yurtici'
 
 export function resolveCarrier(providerId?: string | null): CarrierDef {
   if (providerId) {
