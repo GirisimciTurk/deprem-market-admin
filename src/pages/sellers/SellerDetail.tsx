@@ -16,7 +16,6 @@ import {
   Ban,
   AlertTriangle,
   Trash2,
-  ExternalLink,
   Info,
   KeyRound,
   Copy,
@@ -660,7 +659,7 @@ function ProductsTab({ products }: { products: SellerProduct[] }) {
   return (
     <div className="table-container animate-fadeIn">
       <table>
-        <thead><tr><th>Ürün</th><th>Durum</th><th>Eklenme</th><th style={{ textAlign: 'right' }}>İşlem</th></tr></thead>
+        <thead><tr><th>Ürün</th><th>Durum</th><th>Eklenme</th></tr></thead>
         <tbody>
           {products.map((p) => (
             <tr key={p.id}>
@@ -674,9 +673,6 @@ function ProductsTab({ products }: { products: SellerProduct[] }) {
               </td>
               <td><Badge status={productStatusBadge(p.status)} /></td>
               <td className="muted" style={{ fontSize: '0.82rem' }}>{new Date(p.created_at).toLocaleDateString('tr-TR')}</td>
-              <td style={{ textAlign: 'right' }}>
-                <Link to={`/products/${p.id}`} className="btn btn--secondary btn--icon btn--sm" title="Ürünü Düzenle"><ExternalLink size={14} /></Link>
-              </td>
             </tr>
           ))}
         </tbody>

@@ -91,6 +91,7 @@ export interface Product {
   variants?: ProductVariant[]
   description?: string | null
   weight?: number | null
+  seller?: { id: string; name: string; handle: string } | null
 }
 
 export interface InventoryLevel {

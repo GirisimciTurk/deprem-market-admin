@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { useNavigate } from 'react-router-dom'
-import { Package, Search, Pencil, AlertTriangle, Barcode, Plus } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Package, Search, AlertTriangle, Store } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
@@ -13,11 +13,10 @@ import { api } from '../../lib/api'
 import type { Product, ProductVariant } from '../../lib/types'
 import { productStatus } from '../../lib/statusLabels'
 import { formatMoney } from '../../lib/format'
-import BarcodePrint from './BarcodePrint'
 
 const LIMIT = 20
 const PRODUCT_FIELDS =
-  'id,title,handle,status,thumbnail,created_at,metadata,*variants,*variants.prices,*variants.manage_inventory,*variants.inventory_items,*variants.inventory_items.inventory,*variants.inventory_items.inventory.location_levels'
+  'id,title,handle,status,thumbnail,created_at,metadata,seller.id,seller.name,seller.handle,*variants,*variants.prices,*variants.manage_inventory,*variants.inventory_items,*variants.inventory_items.inventory,*variants.inventory_items.inventory.location_levels'
 
 interface ProductsResponse {
   products: Product[]
@@ -56,10 +55,8 @@ function totalStock(product: Product): number | null {
 export default function Products() {
   const queryClient = useQueryClient()
   const { notify } = useToast()
-  const navigate = useNavigate()
   const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
-  const [barcodeProduct, setBarcodeProduct] = useState<Product | null>(null)
   const debouncedSearch = useDebounce(search)
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -91,12 +88,7 @@ export default function Products() {
     <>
       <Header
         title="Ürünler"
-        subtitle="Ürün kataloğunu, fiyat ve stokları yönet"
-        actions={
-          <button className="btn btn--primary" onClick={() => navigate('/products/new')}>
-            <Plus size={16} /> Yeni Ürün
-          </button>
-        }
+        subtitle="Tüm satıcıların kataloğunu izleyin ve moderasyon yapın"
       />
       <div style={{ padding: '24px' }}>
         <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
@@ -136,11 +128,11 @@ export default function Products() {
                 <thead>
                   <tr>
                     <th>Ürün</th>
+                    <th>Satıcı</th>
                     <th>Durum</th>
                     <th>Varyant</th>
                     <th>Fiyat</th>
                     <th>Stok</th>
-                    <th style={{ textAlign: 'right' }}>İşlem</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -164,6 +156,18 @@ export default function Products() {
                             <div className="muted" style={{ fontSize: '0.76rem' }}>{p.handle}</div>
                           </div>
                         </div>
+                      </td>
+                      <td>
+                        {p.seller ? (
+                          <Link
+                            to={`/sellers/${p.seller.id}`}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.875rem' }}
+                          >
+                            <Store size={13} className="muted" /> {p.seller.name}
+                          </Link>
+                        ) : (
+                          <span className="muted">—</span>
+                        )}
                       </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -209,16 +213,6 @@ export default function Products() {
                           </div>
                         )}
                       </td>
-                      <td>
-                        <div className="row-actions" style={{ justifyContent: 'flex-end' }}>
-                          <button className="btn btn--secondary btn--sm" onClick={() => setBarcodeProduct(p)}>
-                            <Barcode size={14} /> Barkod
-                          </button>
-                          <button className="btn btn--secondary btn--sm" onClick={() => navigate(`/products/${p.id}`)}>
-                            <Pencil size={14} /> Düzenle
-                          </button>
-                        </div>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -228,10 +222,6 @@ export default function Products() {
           </>
         )}
       </div>
-
-      {barcodeProduct && (
-        <BarcodePrint product={barcodeProduct} onClose={() => setBarcodeProduct(null)} />
-      )}
     </>
   )
 }

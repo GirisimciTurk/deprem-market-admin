@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PackageCheck, Truck, XCircle, RotateCcw } from 'lucide-react'
+import { XCircle, RotateCcw } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import ConfirmDialog from '../../components/ui/ConfirmDialog'
@@ -13,24 +13,19 @@ interface Props {
   busy: boolean
   onClose: () => void
   onCancel: () => void
-  onFulfill: () => void
-  onShip: (trackingNumber?: string) => void
-  onDeliver: () => void
   onRefund: (amountMinor?: number) => void
 }
 
-type PendingAction = 'cancel' | 'fulfill' | 'ship' | 'deliver' | 'refund' | null
+type PendingAction = 'cancel' | 'refund' | null
 
-export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill, onShip, onDeliver, onRefund }: Props) {
+// Kontrol Merkezi: kargolama (hazırla/kargoya ver/teslim) satıcı panelinde yapılır.
+// Admin yalnız gözetler + platform para işlemlerini (iade/iptal) yürütür.
+export default function OrderDetail({ order, busy, onClose, onCancel, onRefund }: Props) {
   const [pending, setPending] = useState<PendingAction>(null)
-  const [trackingNumber, setTrackingNumber] = useState('')
   const [refundAmount, setRefundAmount] = useState('')
 
   const addr = order.shipping_address
   const isCanceled = order.status === 'canceled'
-  const isDelivered = order.fulfillment_status === 'delivered'
-  const isShipped = order.fulfillment_status === 'shipped' || order.fulfillment_status === 'delivered'
-  const isFulfilled = !!order.fulfillment_status && order.fulfillment_status !== 'not_fulfilled'
   // Para iadesi: ödeme alınmış (authorized/captured/partially_refunded) ve henüz tam iade edilmemişse.
   const isRefundable = ['authorized', 'captured', 'partially_refunded'].includes(order.payment_status || '')
   // order.total = iade SONRASI kalan (current_order_total); kalemler orijinal fiyatla gösterildiği için
@@ -45,27 +40,6 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
       confirmLabel: 'Siparişi İptal Et',
       danger: true,
       run: onCancel,
-    },
-    fulfill: {
-      title: 'Siparişi Hazırla',
-      message: `#${order.display_id} için tüm ürünlerden bir fulfillment (hazırlık) oluşturulacak. Onaylıyor musunuz?`,
-      confirmLabel: 'Hazırla',
-      danger: false,
-      run: onFulfill,
-    },
-    ship: {
-      title: 'Kargoya Ver',
-      message: `#${order.display_id} numaralı sipariş kargoya verilmiş olarak işaretlenecek. Aras Kargo takip numarasını girerseniz müşteriye takip linkiyle birlikte e-posta gider.`,
-      confirmLabel: 'Kargoya Ver',
-      danger: false,
-      run: () => onShip(trackingNumber.trim() || undefined),
-    },
-    deliver: {
-      title: 'Teslim Edildi Olarak İşaretle',
-      message: `#${order.display_id} numaralı sipariş teslim edildi olarak işaretlenecek ve müşteriye "Teslim Edildi" e-postası gönderilecek. Onaylıyor musunuz?`,
-      confirmLabel: 'Teslim Edildi',
-      danger: false,
-      run: onDeliver,
     },
     refund: {
       title: 'Para İadesi Yap',
@@ -89,21 +63,6 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
       footer={
         <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: 10, flexWrap: 'wrap' }}>
           <div className="row-actions">
-            {!isCanceled && !isFulfilled && (
-              <button className="btn btn--secondary" disabled={busy} onClick={() => setPending('fulfill')}>
-                {busy ? <Spinner size={14} /> : <PackageCheck size={15} />} Hazırla
-              </button>
-            )}
-            {!isCanceled && isFulfilled && !isShipped && (
-              <button className="btn btn--primary" disabled={busy} onClick={() => setPending('ship')}>
-                {busy ? <Spinner size={14} /> : <Truck size={15} />} Kargoya Ver
-              </button>
-            )}
-            {!isCanceled && isShipped && !isDelivered && (
-              <button className="btn btn--primary" disabled={busy} onClick={() => setPending('deliver')}>
-                {busy ? <Spinner size={14} /> : <PackageCheck size={15} />} Teslim Edildi
-              </button>
-            )}
             {isRefundable && (
               <button className="btn btn--secondary" disabled={busy} onClick={() => setPending('refund')}>
                 {busy ? <Spinner size={14} /> : <RotateCcw size={15} />} Para İadesi
@@ -216,38 +175,9 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onFulfill,
           }}
           onCancel={() => {
             setPending(null)
-            setTrackingNumber('')
             setRefundAmount('')
           }}
         >
-          {pending === 'ship' && (
-            <div style={{ marginTop: 14 }}>
-              <label
-                htmlFor="tracking-number"
-                style={{
-                  display: 'block',
-                  fontSize: '0.8rem',
-                  color: 'var(--text-tertiary)',
-                  marginBottom: 6,
-                }}
-              >
-                Aras Kargo Takip Numarası (opsiyonel)
-              </label>
-              <input
-                id="tracking-number"
-                type="text"
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder="Örn: 1234567890123"
-                disabled={busy}
-                style={{ width: '100%' }}
-              />
-              <p className="muted" style={{ fontSize: '0.75rem', marginTop: 6 }}>
-                Boş bırakırsanız sipariş kargoya verildi olarak işaretlenir; takip numarasını
-                sonra da girebilirsiniz.
-              </p>
-            </div>
-          )}
           {pending === 'refund' && (
             <div style={{ marginTop: 14 }}>
               <label htmlFor="refund-amount" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: 6 }}>

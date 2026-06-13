@@ -16,8 +16,6 @@ import ResetPassword from './pages/login/ResetPassword'
 // (Dashboard) gibi ağır bağımlılıklar yalnızca o sayfaya girilince yüklenir.
 const Dashboard = lazy(() => import('./pages/dashboard/Dashboard'))
 const Products = lazy(() => import('./pages/products/Products'))
-const ProductCreate = lazy(() => import('./pages/products/ProductCreate'))
-const ProductEdit = lazy(() => import('./pages/products/ProductEdit'))
 const Orders = lazy(() => import('./pages/orders/Orders'))
 const Returns = lazy(() => import('./pages/returns/Returns'))
 const Customers = lazy(() => import('./pages/customers/Customers'))
@@ -61,8 +59,6 @@ export default function App() {
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Dashboard />} />
                     <Route path="/products" element={<Products />} />
-                    <Route path="/products/new" element={<ProductCreate />} />
-                    <Route path="/products/:id" element={<ProductEdit />} />
                     <Route path="/orders" element={<Orders />} />
                     <Route path="/returns" element={<Returns />} />
                     <Route path="/customers" element={<RoleGuard><Customers /></RoleGuard>} />

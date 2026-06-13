@@ -188,7 +188,7 @@ export default function Returns() {
 
   return (
     <>
-      <Header title="İadeler" subtitle="Müşteri iade taleplerini incele, teslim al ve ücret iadesi yap" />
+      <Header title="İadeler" subtitle="Tüm satıcıların iade taleplerini izleyin; teslim alın ve ücret iadesi yapın" />
       <div style={{ padding: '24px' }}>
         {isLoading ? (
           <LoadingState label="İadeler yükleniyor..." />
