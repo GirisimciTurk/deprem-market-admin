@@ -6,6 +6,7 @@ import {
   Eye,
   Check,
   X,
+  PauseCircle,
   Building,
   User,
   MapPin,
@@ -32,7 +33,7 @@ interface ResellerApplication {
   phone: string
   city: string
   tax_number: string
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending' | 'approved' | 'rejected' | 'suspended'
   message: string
   created_at: string
 }
@@ -60,10 +61,16 @@ export default function Resellers() {
   const filteredApps = data?.applications ?? []
 
   const statusMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: 'approved' | 'rejected' | 'pending' }) =>
+    mutationFn: ({ id, status }: { id: string; status: 'approved' | 'rejected' | 'pending' | 'suspended' }) =>
       api.post(`/admin/reseller-applications/${id}`, { status }),
     onSuccess: (_r, vars) => {
-      notify(vars.status === 'approved' ? 'Bayilik başvurusu onaylandı.' : 'Bayilik başvurusu reddedildi.')
+      const msg: Record<string, string> = {
+        approved: 'Bayilik başvurusu onaylandı. Başvuru sahibine bilgilendirme e-postası gönderildi.',
+        rejected: 'Bayilik başvurusu reddedildi. Başvuru sahibine bilgilendirme e-postası gönderildi.',
+        suspended: 'Bayilik askıya alındı. Başvuru sahibine bilgilendirme e-postası gönderildi.',
+        pending: 'Başvuru tekrar beklemeye alındı.',
+      }
+      notify(msg[vars.status] ?? 'Durum güncellendi.')
       qc.invalidateQueries({ queryKey: ['resellers'] })
       setSelectedApp(null)
     },
@@ -94,8 +101,14 @@ export default function Resellers() {
   }
 
   const handleReject = (id: string) => {
-    if (window.confirm('Bu bayilik başvurusunu reddetmek istediğinize emin misiniz?')) {
+    if (window.confirm('Bu bayilik başvurusunu reddetmek istediğinize emin misiniz? Başvuru sahibine bilgilendirme e-postası gönderilecek.')) {
       statusMutation.mutate({ id, status: 'rejected' })
+    }
+  }
+
+  const handleSuspend = (id: string) => {
+    if (window.confirm('Bu bayiliği askıya almak istediğinize emin misiniz? Başvuru sahibine bilgilendirme e-postası gönderilecek.')) {
+      statusMutation.mutate({ id, status: 'suspended' })
     }
   }
 
@@ -132,6 +145,7 @@ export default function Resellers() {
             <option value="pending">Bekleyenler</option>
             <option value="approved">Onaylananlar</option>
             <option value="rejected">Reddedilenler</option>
+            <option value="suspended">Askıya Alınanlar</option>
           </select>
         </div>
 
@@ -191,6 +205,8 @@ export default function Resellers() {
                             ? { label: 'Onaylandı', variant: 'success' }
                             : app.status === 'rejected'
                             ? { label: 'Reddedildi', variant: 'danger' }
+                            : app.status === 'suspended'
+                            ? { label: 'Askıya Alındı', variant: 'warning' }
                             : { label: 'Beklemede', variant: 'warning' }
                         }
                       />
@@ -209,25 +225,35 @@ export default function Resellers() {
                         >
                           <Eye size={14} />
                         </button>
-                        {app.status === 'pending' && (
-                          <>
-                            <button
-                              className="btn btn--secondary btn--icon btn--sm"
-                              style={{ color: 'var(--accent-success)' }}
-                              title="Onayla"
-                              onClick={() => handleApprove(app.id)}
-                            >
-                              <Check size={14} />
-                            </button>
-                            <button
-                              className="btn btn--secondary btn--icon btn--sm"
-                              style={{ color: 'var(--accent-danger)' }}
-                              title="Reddet"
-                              onClick={() => handleReject(app.id)}
-                            >
-                              <X size={14} />
-                            </button>
-                          </>
+                        {app.status !== 'approved' && (
+                          <button
+                            className="btn btn--secondary btn--icon btn--sm"
+                            style={{ color: 'var(--accent-success)' }}
+                            title={app.status === 'suspended' ? 'Yeniden Aktifleştir' : 'Onayla'}
+                            onClick={() => handleApprove(app.id)}
+                          >
+                            <Check size={14} />
+                          </button>
+                        )}
+                        {app.status === 'approved' && (
+                          <button
+                            className="btn btn--secondary btn--icon btn--sm"
+                            style={{ color: 'var(--accent-warning)' }}
+                            title="Askıya Al"
+                            onClick={() => handleSuspend(app.id)}
+                          >
+                            <PauseCircle size={14} />
+                          </button>
+                        )}
+                        {app.status !== 'rejected' && (
+                          <button
+                            className="btn btn--secondary btn--icon btn--sm"
+                            style={{ color: 'var(--accent-danger)' }}
+                            title="Reddet"
+                            onClick={() => handleReject(app.id)}
+                          >
+                            <X size={14} />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -304,6 +330,8 @@ export default function Resellers() {
                       ? { label: 'Onaylandı', variant: 'success' }
                       : selectedApp.status === 'rejected'
                       ? { label: 'Reddedildi', variant: 'danger' }
+                      : selectedApp.status === 'suspended'
+                      ? { label: 'Askıya Alındı', variant: 'warning' }
                       : { label: 'Beklemede', variant: 'warning' }
                   }
                 />
@@ -313,15 +341,20 @@ export default function Resellers() {
                 <button className="btn btn--secondary" onClick={() => setSelectedApp(null)}>
                   Kapat
                 </button>
-                {selectedApp.status === 'pending' && (
-                  <>
-                    <button className="btn btn--danger" onClick={() => handleReject(selectedApp.id)}>
-                      Başvuruyu Reddet
-                    </button>
-                    <button className="btn btn--primary" onClick={() => handleApprove(selectedApp.id)}>
-                      Başvuruyu Onayla
-                    </button>
-                  </>
+                {selectedApp.status !== 'rejected' && (
+                  <button className="btn btn--danger" onClick={() => handleReject(selectedApp.id)}>
+                    Reddet
+                  </button>
+                )}
+                {selectedApp.status === 'approved' && (
+                  <button className="btn btn--warning" onClick={() => handleSuspend(selectedApp.id)}>
+                    Askıya Al
+                  </button>
+                )}
+                {selectedApp.status !== 'approved' && (
+                  <button className="btn btn--primary" onClick={() => handleApprove(selectedApp.id)}>
+                    {selectedApp.status === 'suspended' ? 'Yeniden Aktifleştir' : 'Onayla'}
+                  </button>
                 )}
                 {selectedApp.status !== 'rejected' && (
                   <button

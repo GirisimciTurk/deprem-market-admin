@@ -206,6 +206,15 @@ input::placeholder, textarea::placeholder {
   color: white;
 }
 
+.btn--warning {
+  background: var(--accent-warning-light);
+  color: var(--accent-warning);
+}
+.btn--warning:hover {
+  background: var(--accent-warning);
+  color: white;
+}
+
 .btn--ghost {
   color: var(--text-secondary);
 }

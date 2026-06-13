@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
   Store,
@@ -12,6 +13,7 @@ import {
   Home,
   Wallet,
   Star,
+  ArrowRight,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
@@ -86,6 +88,7 @@ function statusBadge(status: SellerStatus) {
 
 export default function Sellers() {
   const { notify } = useToast()
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
@@ -271,11 +274,15 @@ export default function Sellers() {
                     <tr key={s.id}>
                       <td>
                         <div>
-                          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Link
+                            to={`/sellers/${s.id}`}
+                            style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', color: 'inherit' }}
+                            className="seller-name-link"
+                          >
                             {s.is_house ? <Home size={14} className="muted" /> : <Store size={14} className="muted" />}
                             {s.name}
                             {s.is_house && <Badge status={{ label: 'Ana Mağaza', variant: 'info' }} />}
-                          </div>
+                          </Link>
                           <div className="muted" style={{ fontSize: '0.78rem', marginTop: '2px' }}>
                             /{s.handle}{s.tax_number ? ` · VKN: ${s.tax_number}` : ''}
                           </div>
@@ -310,6 +317,13 @@ export default function Sellers() {
                       </td>
                       <td>
                         <div className="row-actions" style={{ justifyContent: 'flex-end' }}>
+                          <button
+                            className="btn btn--primary btn--sm"
+                            title="Detaylı Yönetim"
+                            onClick={() => navigate(`/sellers/${s.id}`)}
+                          >
+                            Detay <ArrowRight size={13} />
+                          </button>
                           <button
                             className="btn btn--secondary btn--icon btn--sm"
                             title="Ödemeler / Siparişler"

@@ -30,6 +30,7 @@ interface ProductReview {
   comment: string
   status: 'pending' | 'approved' | 'spam'
   createdAt: string
+  images: string[]
 }
 
 interface BackendReview {
@@ -40,6 +41,7 @@ interface BackendReview {
   comment: string
   status: 'pending' | 'approved' | 'spam'
   created_at: string
+  images: string[] | null
 }
 
 function mapReview(r: BackendReview): ProductReview {
@@ -51,6 +53,7 @@ function mapReview(r: BackendReview): ProductReview {
     comment: r.comment,
     status: r.status,
     createdAt: r.created_at,
+    images: Array.isArray(r.images) ? r.images : [],
   }
 }
 
@@ -60,6 +63,7 @@ export default function Reviews() {
   const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [lightbox, setLightbox] = useState<string | null>(null)
   const debounced = useDebounce(search)
 
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
@@ -138,6 +142,53 @@ export default function Reviews() {
 
   return (
     <>
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Yorum fotoğrafı"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 1000,
+            background: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32px',
+            cursor: 'zoom-out',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setLightbox(null)}
+            aria-label="Kapat"
+            style={{
+              position: 'absolute',
+              top: 20,
+              right: 24,
+              width: 38,
+              height: 38,
+              borderRadius: '50%',
+              border: 'none',
+              background: 'rgba(0,0,0,0.6)',
+              color: '#fff',
+              fontSize: '1.1rem',
+              cursor: 'pointer',
+            }}
+          >
+            ✕
+          </button>
+          <img
+            src={lightbox}
+            alt="Yorum fotoğrafı"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }}
+          />
+        </div>
+      )}
+
       <Header title="Yorumlar" subtitle="Ürün yorumlarını moderasyon edin ve puanları izleyin" />
 
       <div style={{ padding: '24px' }}>
@@ -227,6 +278,36 @@ export default function Reviews() {
                       }}>
                         {review.comment}
                       </p>
+                      {review.images.length > 0 && (
+                        <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                          {review.images.map((img, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => setLightbox(img)}
+                              title="Büyüt"
+                              style={{
+                                width: 48,
+                                height: 48,
+                                borderRadius: 'var(--radius-sm)',
+                                overflow: 'hidden',
+                                border: '1px solid var(--border-color)',
+                                padding: 0,
+                                cursor: 'zoom-in',
+                                background: 'var(--bg-tertiary)',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <img
+                                src={img}
+                                alt={`Yorum fotoğrafı ${idx + 1}`}
+                                loading="lazy"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </td>
                     <td>
                       <Badge
