@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { Undo2, Eye, PackageCheck, RotateCcw } from 'lucide-react'
+import { Undo2, Eye, RotateCcw, Store, XCircle, Gavel } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
 import Modal from '../../components/ui/Modal'
@@ -10,186 +10,144 @@ import { Spinner, LoadingState } from '../../components/ui/Spinner'
 import { EmptyState, ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
 import { api } from '../../lib/api'
-import { returnStatus } from '../../lib/statusLabels'
+import type { StatusMeta } from '../../lib/statusLabels'
 import { formatDate, formatMoney } from '../../lib/format'
 
 const LIMIT = 20
-const RETURN_FIELDS = [
-  'id',
-  'status',
-  'order_id',
-  'display_id',
-  'created_at',
-  'items.id',
-  'items.item_id',
-  'items.quantity',
-  'items.received_quantity',
-  'items.reason.label',
-  'items.item.title',
-  'items.item.product_title',
-  'items.item.unit_price',
-  // NOT: `order` ilişkisi BİLEREK burada yok. /admin/returns'te `order` ilişkisini
-  // genişletirken aynı anda `order=-created_at` sıralama parametresi gönderince Medusa
-  // ikisini karıştırıp `Order.name`'e göre sıralamaya çalışıyor → 500. Sipariş bilgisi
-  // (display_id/email/currency) ayrı bir /admin/orders çağrısıyla çekilip birleştiriliyor.
-].join(',')
 
-interface ReturnItem {
-  id: string
-  item_id: string
+const STATUS_OPTIONS = [
+  { value: '', label: 'Tümü' },
+  { value: 'requested', label: 'Bekleyen (Satıcıda)' },
+  { value: 'received', label: 'Teslim Alındı' },
+  { value: 'rejected', label: 'Reddedildi' },
+]
+
+function srStatus(status: string): StatusMeta {
+  if (status === 'received') return { label: 'Teslim Alındı', variant: 'success' }
+  if (status === 'rejected') return { label: 'Reddedildi', variant: 'danger' }
+  return { label: 'Bekliyor (Satıcıda)', variant: 'warning' }
+}
+
+interface SellerReturnItem {
+  product_id?: string
+  title?: string
   quantity: number
-  received_quantity?: number
-  reason?: { label?: string } | null
-  item?: { title?: string; product_title?: string; unit_price?: number } | null
+  unit_price: number
+  line_total: number
 }
 
-interface ReturnRecord {
+interface AdminSellerReturn {
   id: string
-  status: string
+  return_id: string
   order_id: string
-  display_id?: number
+  display_id?: string
+  customer_email?: string | null
+  currency_code?: string
+  status: string
+  reason?: string | null
+  reject_reason?: string | null
+  items?: SellerReturnItem[]
+  returned_subtotal: number
+  returned_commission: number
+  returned_earning: number
+  received_at?: string | null
+  rejected_at?: string | null
   created_at: string
-  items?: ReturnItem[]
-  order?: {
-    display_id?: number
-    email?: string
-    currency_code?: string
-    /** Siparişte şimdiye dek iade edilmiş toplam (kuruş). */
-    refunded_total?: number
-    /** Siparişte tahsil edilmiş toplam (kuruş) — iade edilebilir tavanı belirler. */
-    paid_total?: number
-  } | null
+  seller?: { id: string; name: string; handle: string } | null
+  order?: { paid_total: number; refunded_total: number } | null
 }
-
-// İade edilen kalemlerin toplam değeri (minor unit/kuruş) = onaylanınca iade edilecek tutar.
-const returnRefundMinor = (ret: ReturnRecord) =>
-  (ret.items ?? []).reduce(
-    (sum, i) => sum + (i.quantity || 0) * (i.item?.unit_price || 0),
-    0
-  )
 
 interface ReturnsResponse {
-  returns: ReturnRecord[]
+  returns: AdminSellerReturn[]
   count: number
   offset: number
   limit: number
 }
 
+type Pending = 'accept' | 'uphold' | 'refund' | null
+
 export default function Returns() {
   const queryClient = useQueryClient()
   const { notify } = useToast()
   const [offset, setOffset] = useState(0)
-  const [selected, setSelected] = useState<ReturnRecord | null>(null)
-  const [pending, setPending] = useState<'approve' | 'refund' | null>(null)
+  const [statusFilter, setStatusFilter] = useState('')
+  const [selected, setSelected] = useState<AdminSellerReturn | null>(null)
+  const [pending, setPending] = useState<Pending>(null)
   const [refundAmount, setRefundAmount] = useState('')
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['returns', offset],
-    queryFn: async () => {
-      const res = await api.get<ReturnsResponse>('/admin/returns', {
+    queryKey: ['seller-returns', offset, statusFilter],
+    queryFn: () =>
+      api.get<ReturnsResponse>('/admin/seller-returns', {
         limit: LIMIT,
         offset,
-        fields: RETURN_FIELDS,
-        order: '-created_at',
-      })
-      // Sipariş bilgisini ayrı çek (order ilişkisi + sıralama Medusa'da çakışıyor, bkz. RETURN_FIELDS notu).
-      const orderIds = [...new Set((res.returns ?? []).map((r) => r.order_id).filter(Boolean))]
-      if (orderIds.length) {
-        const qs = orderIds.map((id) => `id[]=${encodeURIComponent(id)}`).join('&')
-        // summary.* gerekiyor: spesifik summary.x alanları null dönüyor (computed field).
-        const ordersRes = await api.get<{
-          orders: { id: string; display_id?: number; email?: string; currency_code?: string; summary?: { refunded_total?: number; paid_total?: number } }[]
-        }>(`/admin/orders?fields=id,display_id,email,currency_code,summary.*&limit=${orderIds.length}&${qs}`)
-        const byId = new Map((ordersRes.orders ?? []).map((o) => [o.id, o]))
-        res.returns.forEach((r) => {
-          const o = byId.get(r.order_id)
-          if (o)
-            r.order = {
-              display_id: o.display_id,
-              email: o.email,
-              currency_code: o.currency_code,
-              refunded_total: o.summary?.refunded_total,
-              paid_total: o.summary?.paid_total,
-            }
-        })
-      }
-      return res
-    },
+        status: statusFilter || undefined,
+      }),
     placeholderData: keepPreviousData,
   })
 
-  // İadeyi ONAYLA (tek akış):
-  //  1) Teslim al: begin-receive → receive-items → confirm
-  //     (confirm managed-inventory variantları için stoğu OTOMATİK geri ekler ve
-  //      order.return_received event'iyle müşteriye "İadeniz Teslim Alındı" maili gider).
-  //  2) İade edilen kalemlerin değerini müşteriye geri öde (/admin/order-refunds).
-  const approveMutation = useMutation({
-    mutationFn: async (ret: ReturnRecord) => {
-      const items = (ret.items ?? [])
-        .filter((i) => i.quantity > 0)
-        .map((i) => ({ id: i.item_id, quantity: i.quantity }))
-      if (!items.length) throw new Error('Onaylanacak kalem bulunamadı.')
-      // 1) Teslim al + stok + mail
-      await api.post(`/admin/returns/${ret.id}/receive`, {})
-      await api.post(`/admin/returns/${ret.id}/receive-items`, { items })
-      await api.post(`/admin/returns/${ret.id}/receive/confirm`, {})
-      // 2) İade edilen kalemlerin değerini iade et — ama siparişte GERÇEKTEN iade edilebilen kadar.
-      // Ödenmemiş sipariş (paid=0) veya tutarı önceden iade edilmiş siparişte iade adımı atlanır,
-      // aksi halde order-refunds 400 verir ve stok geri eklenmiş ama akış hata vermiş olur.
-      const refundable = Math.max(0, (ret.order?.paid_total ?? 0) - (ret.order?.refunded_total ?? 0))
-      const amount = Math.min(returnRefundMinor(ret), refundable)
-      const refunded = amount > 0
-      if (refunded) {
-        await api.post('/admin/order-refunds', { order_id: ret.order_id, amount })
-      }
-      return { refunded, amount }
-    },
-    onSuccess: (r) => {
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['seller-returns'] })
+
+  const arbitrateMutation = useMutation({
+    mutationFn: ({ ret, action }: { ret: AdminSellerReturn; action: 'accept' | 'uphold_reject' }) =>
+      api.post(`/admin/seller-returns/${ret.id}/arbitrate`, { action }),
+    onSuccess: (_r, vars) => {
       notify(
-        r.refunded
-          ? `İade onaylandı: stok geri eklendi, ${formatMoney(r.amount, cur)} ücret iadesi yapıldı, müşteriye e-posta gönderildi.`
-          : 'İade onaylandı: stok geri eklendi, müşteriye e-posta gönderildi. (Siparişte iade edilecek tahsilat yok.)'
+        vars.action === 'accept'
+          ? 'İade satıcı adına teslim alındı ve müşteriye ücret iadesi yapıldı.'
+          : 'İade iptal edildi (ret onaylandı).'
       )
-      queryClient.invalidateQueries({ queryKey: ['returns'] })
+      refresh()
       setSelected(null)
+      setPending(null)
     },
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
-  // Para iadesi: mevcut /admin/order-refunds ucu (gerekirse capture + Paynkolay iade).
   const refundMutation = useMutation({
-    mutationFn: ({ ret, amount }: { ret: ReturnRecord; amount?: number }) =>
-      api.post(
-        '/admin/order-refunds',
-        amount ? { order_id: ret.order_id, amount } : { order_id: ret.order_id }
-      ),
+    mutationFn: ({ ret, amount }: { ret: AdminSellerReturn; amount?: number }) =>
+      api.post('/admin/order-refunds', amount ? { order_id: ret.order_id, amount } : { order_id: ret.order_id }),
     onSuccess: () => {
       notify('Para iadesi yapıldı.')
-      queryClient.invalidateQueries({ queryKey: ['returns'] })
+      refresh()
       setSelected(null)
+      setPending(null)
+      setRefundAmount('')
     },
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
+  const busy = arbitrateMutation.isPending || refundMutation.isPending
   const returns = data?.returns ?? []
-  const busy = approveMutation.isPending || refundMutation.isPending
 
-  const canReceive = (s: string) => s === 'requested' || s === 'partially_received'
-
-  // Seçili iadenin siparişinde para durumu (modal için).
-  const refundedTotal = selected?.order?.refunded_total ?? 0
-  const paidTotal = selected?.order?.paid_total ?? 0
-  const refundableRemaining = Math.max(0, paidTotal - refundedTotal)
-  // Tahsilat bilgisi var ve iade edilebilir bakiye kalmadıysa manuel iade engellenir (çift-iade önleme).
-  const nothingRefundable = paidTotal > 0 && refundableRemaining <= 0
-  const cur = selected?.order?.currency_code
-  // Onayda gerçekten iade edilecek tutar = kalem değeri ile iade-edilebilir bakiyenin küçüğü.
-  const approveRefund = selected ? Math.min(returnRefundMinor(selected), refundableRemaining) : 0
+  const refundableRemaining = (r: AdminSellerReturn | null) =>
+    r ? Math.max(0, (r.order?.paid_total ?? 0) - (r.order?.refunded_total ?? 0)) : 0
+  const cur = selected?.currency_code
 
   return (
     <>
-      <Header title="İadeler" subtitle="Tüm satıcıların iade taleplerini izleyin; teslim alın ve ücret iadesi yapın" />
+      <Header
+        title="İadeler"
+        subtitle="Tüm satıcıların iade taleplerini izleyin; gerekirse hakem olarak müdahale edin"
+      />
       <div style={{ padding: '24px' }}>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value)
+              setOffset(0)
+            }}
+            style={{ width: 'auto', minWidth: 200 }}
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {isLoading ? (
           <LoadingState label="İadeler yükleniyor..." />
         ) : isError ? (
@@ -197,8 +155,8 @@ export default function Returns() {
         ) : returns.length === 0 ? (
           <EmptyState
             icon={<Undo2 size={26} />}
-            title="İade talebi yok"
-            description="Henüz hiç iade talebi oluşturulmamış. Müşteriler hesaplarından iade talebi açtığında burada listelenir."
+            title="İade yok"
+            description={statusFilter ? 'Bu duruma uygun iade bulunmuyor.' : 'Henüz hiç iade talebi oluşturulmamış.'}
           />
         ) : (
           <>
@@ -209,10 +167,10 @@ export default function Returns() {
               <table>
                 <thead>
                   <tr>
-                    <th>İade No</th>
                     <th>Sipariş</th>
+                    <th>Satıcı</th>
                     <th>Durum</th>
-                    <th>Ürünler</th>
+                    <th>İade Tutarı</th>
                     <th>Tarih</th>
                     <th style={{ textAlign: 'right' }}>İşlem</th>
                   </tr>
@@ -221,20 +179,18 @@ export default function Returns() {
                   {returns.map((r) => (
                     <tr key={r.id}>
                       <td className="nowrap">
-                        <strong>#{r.display_id ?? r.id.substring(0, 8)}</strong>
-                      </td>
-                      <td className="nowrap">
-                        <div>#{r.order?.display_id ?? '-'}</div>
-                        <div className="muted" style={{ fontSize: '0.78rem' }}>
-                          {r.order?.email}
-                        </div>
+                        <strong>#{r.display_id ?? '-'}</strong>
+                        <div className="muted" style={{ fontSize: '0.78rem' }}>{r.customer_email}</div>
                       </td>
                       <td>
-                        <Badge status={returnStatus(r.status)} />
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.875rem' }}>
+                          <Store size={13} className="muted" /> {r.seller?.name ?? <span className="muted">—</span>}
+                        </span>
                       </td>
-                      <td className="nowrap muted">
-                        {(r.items ?? []).reduce((sum, i) => sum + (i.quantity || 0), 0)} adet
+                      <td>
+                        <Badge status={srStatus(r.status)} />
                       </td>
+                      <td className="nowrap">{formatMoney(r.returned_subtotal, r.currency_code)}</td>
                       <td className="nowrap muted" style={{ fontSize: '0.8rem' }}>
                         {formatDate(r.created_at)}
                       </td>
@@ -257,25 +213,32 @@ export default function Returns() {
 
       {selected && (
         <Modal
-          title={`İade #${selected.display_id ?? selected.id.substring(0, 8)}`}
+          title={`İade · Sipariş #${selected.display_id ?? ''}`}
           size="md"
           onClose={() => setSelected(null)}
           footer={
             <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: 10, flexWrap: 'wrap' }}>
               <div className="row-actions">
-                {canReceive(selected.status) && (
-                  <button className="btn btn--primary" disabled={busy} onClick={() => setPending('approve')}>
-                    {busy ? <Spinner size={14} /> : <PackageCheck size={15} />} İadeyi Onayla
+                {selected.status !== 'received' && (
+                  <>
+                    <button className="btn btn--primary" disabled={busy} onClick={() => setPending('accept')}>
+                      {busy ? <Spinner size={14} /> : <Gavel size={15} />} Satıcı Adına Kabul Et
+                    </button>
+                    <button
+                      className="btn btn--secondary"
+                      style={{ color: 'var(--accent-danger)' }}
+                      disabled={busy}
+                      onClick={() => setPending('uphold')}
+                    >
+                      <XCircle size={15} /> İadeyi İptal Et
+                    </button>
+                  </>
+                )}
+                {refundableRemaining(selected) > 0 && (
+                  <button className="btn btn--secondary" disabled={busy} onClick={() => setPending('refund')}>
+                    {busy ? <Spinner size={14} /> : <RotateCcw size={15} />} Manuel Para İadesi
                   </button>
                 )}
-                <button
-                  className="btn btn--secondary"
-                  disabled={busy || nothingRefundable}
-                  title={nothingRefundable ? 'Bu siparişin iade edilebilir bakiyesi kalmadı.' : undefined}
-                  onClick={() => setPending('refund')}
-                >
-                  {busy ? <Spinner size={14} /> : <RotateCcw size={15} />} Manuel Para İadesi
-                </button>
               </div>
               <button className="btn btn--secondary" onClick={() => setSelected(null)}>
                 Kapat
@@ -284,117 +247,115 @@ export default function Returns() {
           }
         >
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-            <Badge status={returnStatus(selected.status)} />
-            <span className="muted" style={{ fontSize: '0.85rem' }}>
-              Sipariş #{selected.order?.display_id ?? '-'} · {selected.order?.email}
+            <Badge status={srStatus(selected.status)} />
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.85rem' }} className="muted">
+              <Store size={13} /> {selected.seller?.name}
             </span>
             <span className="muted" style={{ marginLeft: 'auto', fontSize: '0.8rem' }}>
               {formatDate(selected.created_at)}
             </span>
           </div>
 
+          {selected.status === 'rejected' && selected.reject_reason && (
+            <div
+              className="card"
+              style={{ marginBottom: 14, padding: '12px 14px', color: 'var(--accent-danger)', fontSize: '0.86rem' }}
+            >
+              <strong>Satıcının Ret Gerekçesi: </strong>
+              {selected.reject_reason}
+            </div>
+          )}
+
           <div className="card">
             <h4 style={{ fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-tertiary)', marginBottom: 12 }}>
               İade Edilen Ürünler ({selected.items?.length ?? 0})
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {(selected.items ?? []).map((i) => (
-                <div key={i.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {(selected.items ?? []).map((i, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '0.875rem' }}>{i.item?.product_title || i.item?.title || 'Ürün'}</div>
-                    {i.reason?.label && (
-                      <div className="muted" style={{ fontSize: '0.78rem' }}>Sebep: {i.reason.label}</div>
-                    )}
+                    <div style={{ fontSize: '0.875rem' }}>{i.title || 'Ürün'}</div>
                   </div>
                   <div className="muted nowrap" style={{ fontSize: '0.82rem' }}>x{i.quantity}</div>
+                  <div className="nowrap" style={{ fontSize: '0.875rem', minWidth: 90, textAlign: 'right' }}>
+                    {formatMoney(i.line_total, selected.currency_code)}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {refundedTotal > 0 ? (
-            // Bu siparişte zaten iade yapılmış (onay akışı veya manuel) → yanlış "iade edilecek" gösterme.
-            <div
-              className="card"
-              style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>İade edildi</span>
-                <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--success, #16a34a)' }}>
-                  {formatMoney(refundedTotal, cur)}
-                </span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }} className="muted">
-                <span>İade edilebilir kalan</span>
-                <span>{formatMoney(refundableRemaining, cur)}</span>
-              </div>
+          <div
+            className="card"
+            style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.86rem' }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span className="muted">İade Tutarı (müşteriye)</span>
+              <span style={{ fontWeight: 600 }}>{formatMoney(selected.returned_subtotal, cur)}</span>
             </div>
-          ) : approveRefund > 0 ? (
-            <div
-              className="card"
-              style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-            >
-              <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Onaylanınca iade edilecek</span>
-              <span style={{ fontSize: '1rem', fontWeight: 700, color: 'var(--accent, #e11d48)' }}>
-                {formatMoney(approveRefund, cur)}
-              </span>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }} className="muted">
+              <span>Geri alınan komisyon / kazanç</span>
+              <span>{formatMoney(selected.returned_commission, cur)} / {formatMoney(selected.returned_earning, cur)}</span>
             </div>
-          ) : null}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed var(--border-primary)', paddingTop: 6 }} className="muted">
+              <span>İade edilebilir kalan (sipariş)</span>
+              <span>{formatMoney(refundableRemaining(selected), cur)}</span>
+            </div>
+          </div>
 
           <p className="muted" style={{ fontSize: '0.78rem', marginTop: 14, lineHeight: 1.6 }}>
-            {canReceive(selected.status) ? (
-              <>
-                <strong>"İadeyi Onayla"</strong>: iadeyi teslim alınmış işaretler → stoğu geri ekler →{' '}
-                {approveRefund > 0
-                  ? `müşteriye ${formatMoney(approveRefund, cur)} ücret iadesi yapar →`
-                  : 'siparişte iade edilecek tahsilat olmadığı için ücret iadesi yapılmaz →'}{' '}
-                müşteriye onay e-postası gönderir.
-                {approveRefund > 0 && ' Farklı/kısmi bir tutar iade etmek için "Manuel Para İadesi"ni kullanın.'}
-              </>
-            ) : nothingRefundable ? (
-              <>Bu siparişin iade edilebilir bakiyesi kalmadı (tutar zaten iade edildi). Ek iade yapılamaz.</>
-            ) : (
-              <>Bu iade teslim alınmış. Kalan tutarı iade etmek için "Manuel Para İadesi"ni kullanın.</>
-            )}
+            {selected.status === 'received'
+              ? 'Bu iade teslim alınmış; stok geri eklenmiş, müşteriye ücret iadesi yapılmış ve satıcı bakiyesinden düşülmüştür.'
+              : selected.status === 'rejected'
+              ? 'Satıcı bu iadeyi reddetti. Müşteri haklıysa "Satıcı Adına Kabul Et" ile iadeyi onaylayıp ücret iadesi yapabilir; satıcı haklıysa "İadeyi İptal Et" ile reddi kesinleştirebilirsiniz.'
+              : 'İade satıcının onayını bekliyor. Gerekirse hakem olarak satıcı adına kabul edebilir (teslim al + ücret iadesi) veya iadeyi iptal edebilirsiniz.'}
           </p>
 
-          {pending === 'approve' && (
+          {pending === 'accept' && (
             <ConfirmDialog
-              title="İadeyi Onayla"
-              message={`#${selected.display_id ?? ''} numaralı iade onaylanacak: stok geri eklenecek, ${
-                approveRefund > 0
-                  ? `müşteriye ${formatMoney(approveRefund, cur)} ücret iadesi yapılacak`
-                  : 'ücret iadesi gerekmiyor (siparişte iade edilecek tahsilat yok)'
-              } ve müşteriye onay e-postası gönderilecek. Onaylıyor musunuz?`}
-              confirmLabel="İadeyi Onayla"
-              danger={false}
+              title="Satıcı Adına Kabul Et"
+              message={`#${selected.display_id ?? ''} numaralı iade satıcı adına teslim alınacak: stok geri eklenecek, müşteriye ${formatMoney(
+                Math.min(selected.returned_subtotal, refundableRemaining(selected)),
+                cur
+              )} ücret iadesi yapılacak ve satıcı bakiyesinden düşülecek. Onaylıyor musunuz?`}
+              confirmLabel="Satıcı Adına Kabul Et"
               loading={busy}
-              onConfirm={() => {
-                approveMutation.mutate(selected)
-                setPending(null)
-              }}
+              onConfirm={() => arbitrateMutation.mutate({ ret: selected, action: 'accept' })}
+              onCancel={() => setPending(null)}
+            />
+          )}
+
+          {pending === 'uphold' && (
+            <ConfirmDialog
+              title="İadeyi İptal Et"
+              message={`#${selected.display_id ?? ''} numaralı iade iptal edilecek (ret kesinleşir): müşteriye ücret iadesi YAPILMAZ, stok geri eklenmez. Emin misiniz?`}
+              confirmLabel="İadeyi İptal Et"
+              danger
+              loading={busy}
+              onConfirm={() => arbitrateMutation.mutate({ ret: selected, action: 'uphold_reject' })}
               onCancel={() => setPending(null)}
             />
           )}
 
           {pending === 'refund' && (
             <ConfirmDialog
-              title="Para İadesi Yap"
-              message={`Sipariş #${selected.order?.display_id ?? ''} için iade tutarını girin. İade edilebilir kalan: ${formatMoney(refundableRemaining, cur)}. Boş bırakırsanız kalanın tamamı iade edilir.`}
+              title="Manuel Para İadesi"
+              message={`Sipariş #${selected.display_id ?? ''} için iade tutarını girin. İade edilebilir kalan: ${formatMoney(
+                refundableRemaining(selected),
+                cur
+              )}. Boş bırakırsanız kalanın tamamı iade edilir.`}
               confirmLabel="İadeyi Onayla"
               danger
               loading={busy}
               onConfirm={() => {
                 const tl = parseFloat(refundAmount.replace(',', '.'))
                 const amount = refundAmount.trim() && !Number.isNaN(tl) && tl > 0 ? Math.round(tl * 100) : undefined
-                // Girilen tutar kalan bakiyeyi aşıyorsa backend'e gitmeden uyar.
-                if (amount && refundableRemaining > 0 && amount > refundableRemaining) {
-                  notify(`Girilen tutar iade edilebilir kalandan (${formatMoney(refundableRemaining, cur)}) fazla.`, 'error')
+                const rem = refundableRemaining(selected)
+                if (amount && rem > 0 && amount > rem) {
+                  notify(`Girilen tutar iade edilebilir kalandan (${formatMoney(rem, cur)}) fazla.`, 'error')
                   return
                 }
                 refundMutation.mutate({ ret: selected, amount })
-                setPending(null)
-                setRefundAmount('')
               }}
               onCancel={() => {
                 setPending(null)
@@ -402,17 +363,17 @@ export default function Returns() {
               }}
             >
               <div style={{ marginTop: 14 }}>
-                <label htmlFor="return-refund-amount" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: 6 }}>
+                <label htmlFor="admin-refund-amount" style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: 6 }}>
                   İade Tutarı (₺) — boş = tamamı
                 </label>
                 <input
-                  id="return-refund-amount"
+                  id="admin-refund-amount"
                   type="number"
                   min="0"
                   step="0.01"
                   value={refundAmount}
                   onChange={(e) => setRefundAmount(e.target.value)}
-                  placeholder={(refundableRemaining / 100).toFixed(2)}
+                  placeholder={(refundableRemaining(selected) / 100).toFixed(2)}
                   disabled={busy}
                   style={{ width: '100%' }}
                 />
