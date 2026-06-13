@@ -1,4 +1,5 @@
-import { Search, Bell, User } from 'lucide-react'
+import { Search, User } from 'lucide-react'
+import NotificationBell from '../NotificationBell'
 import './Header.css'
 
 interface HeaderProps {
@@ -22,10 +23,7 @@ export default function Header({ title, subtitle, actions }: HeaderProps) {
           <Search size={16} />
           <input type="text" placeholder="Ara..." className="header__search-input" />
         </div>
-        <button className="header__icon-btn" title="Bildirimler">
-          <Bell size={18} />
-          <span className="header__notification-dot" />
-        </button>
+        <NotificationBell />
         <button className="header__avatar" title="Profil">
           <User size={18} />
         </button>
