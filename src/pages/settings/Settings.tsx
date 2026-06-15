@@ -74,7 +74,7 @@ export default function SettingsPage() {
   const [announcement, setAnnouncement] = useState<Announcement>({
     enabled: true,
     message: '500 TL ve Üzeri Alışverişlerinizde Kargo Bedava!',
-    backgroundColor: '#6366f1',
+    backgroundColor: '#F08C1A',
     textColor: '#ffffff'
   })
 

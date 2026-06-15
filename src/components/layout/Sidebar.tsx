@@ -11,6 +11,7 @@ import {
   Users,
   FileText,
   Handshake,
+  Plane,
   MessageSquare,
   MessageCircleQuestion,
   Percent,
@@ -28,7 +29,6 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Shield,
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -47,6 +47,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
       { path: '/seller-scorecards', icon: Award, label: 'Performans Karneleri' },
       { path: '/seller-campaigns', icon: Tag, label: 'Kampanyalar' },
       { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
+      { path: '/havar-requests', icon: Plane, label: 'HAVAR Talepleri' },
       { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
       { path: '/commission-rules', icon: Calculator, label: 'Komisyon Oranları' },
       { path: '/cargo-tariff', icon: Truck, label: 'Kargo Tarifesi' },
@@ -108,11 +109,22 @@ export default function Sidebar() {
       <div className="sidebar__header">
         <div className="sidebar__logo">
           <div className="sidebar__logo-icon">
-            <Shield size={22} />
+            {/* depremTek dT monogramı (beyaz, gradient kutu üzerinde) */}
+            <svg width="22" height="22" viewBox="0 0 52 48" fill="none" aria-hidden="true">
+              <path
+                fillRule="evenodd"
+                clipRule="evenodd"
+                d="M17 17a11 11 0 1 0 0 22 11 11 0 0 0 0-22Zm0 6.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z"
+                fill="#fff"
+              />
+              <rect x="24" y="5" width="6.5" height="34" rx="2" fill="#fff" />
+              <rect x="31" y="8" width="15" height="6.5" rx="1.2" fill="#fff" fillOpacity="0.85" />
+              <rect x="35" y="8" width="6.5" height="31" rx="1.2" fill="#fff" fillOpacity="0.85" />
+            </svg>
           </div>
           {!collapsed && (
             <div className="sidebar__logo-text">
-              <span className="sidebar__logo-title">Deprem Market</span>
+              <span className="sidebar__logo-title">depremTek</span>
               <span className="sidebar__logo-subtitle">Kontrol Merkezi</span>
             </div>
           )}

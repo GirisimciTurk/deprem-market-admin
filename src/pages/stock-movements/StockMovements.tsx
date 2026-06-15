@@ -37,7 +37,7 @@ interface Resp {
 const TYPE_META: Record<string, { label: string; color: string }> = {
   sale: { label: 'Satış', color: '#dc2626' },
   return: { label: 'İade', color: '#16a34a' },
-  manual: { label: 'Manuel', color: '#6366f1' },
+  manual: { label: 'Manuel', color: '#F08C1A' },
   transfer_in: { label: 'Transfer (Giriş)', color: '#0891b2' },
   transfer_out: { label: 'Transfer (Çıkış)', color: '#d97706' },
   count: { label: 'Sayım', color: '#7c3aed' },

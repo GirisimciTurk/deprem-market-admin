@@ -10,16 +10,16 @@
 
   --border-primary: #e2e8f0;
   --border-secondary: #cbd5e1;
-  --border-accent: #6366f1;
+  --border-accent: #F08C1A;
 
   --text-primary: #0f172a;
   --text-secondary: #334155;
   --text-tertiary: #64748b;
   --text-inverse: #ffffff;
 
-  --accent-primary: #4f46e5;
-  --accent-primary-hover: #4338ca;
-  --accent-primary-light: rgba(79, 70, 229, 0.08);
+  --accent-primary: #F08C1A;
+  --accent-primary-hover: #C8730F;
+  --accent-primary-light: rgba(240, 140, 26, 0.10);
   --accent-success: #10b981;
   --accent-success-light: rgba(16, 185, 129, 0.08);
   --accent-warning: #d97706;

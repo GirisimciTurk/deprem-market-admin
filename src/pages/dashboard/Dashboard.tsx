@@ -63,7 +63,7 @@ interface ChartPoint {
   orders: number
 }
 
-const COLORS = ['#6366f1', '#10b981', '#3b82f6', '#f59e0b', '#ef4444']
+const COLORS = ['#F08C1A', '#10b981', '#3b82f6', '#f59e0b', '#ef4444']
 
 const RANGE_LABELS: Record<TimeRange, string> = {
   today: 'Bugün',
