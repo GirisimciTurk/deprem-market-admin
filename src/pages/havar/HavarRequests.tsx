@@ -47,8 +47,8 @@ const BUYER_LABEL: Record<string, string> = { individual: 'Bireysel', family: 'A
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Bekliyor', reviewed: 'İncelendi', contacted: 'İletişime Geçildi', closed: 'Kapandı',
 }
-const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'default'> = {
-  pending: 'warning', reviewed: 'info', contacted: 'success', closed: 'default',
+const STATUS_VARIANT: Record<string, 'warning' | 'info' | 'success' | 'neutral'> = {
+  pending: 'warning', reviewed: 'info', contacted: 'success', closed: 'neutral',
 }
 
 export default function HavarRequests() {
@@ -143,7 +143,7 @@ export default function HavarRequests() {
             <tbody>
               {requests.map((r) => (
                 <tr key={r.id}>
-                  <td><Badge variant={r.type === 'rental' ? 'info' : 'success'}>{TYPE_LABEL[r.type]}</Badge></td>
+                  <td><Badge status={{ variant: r.type === 'rental' ? 'info' : 'success', label: TYPE_LABEL[r.type] }} /></td>
                   <td>
                     <div style={{ fontWeight: 600 }}>{r.full_name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{BUYER_LABEL[r.buyer_type]}{r.city ? ` · ${r.city}` : ''}</div>
@@ -154,8 +154,8 @@ export default function HavarRequests() {
                   </td>
                   <td style={{ fontSize: 13 }}>{USAGE_LABEL[r.usage]}{r.type === 'rental' && r.rental_duration ? ` · ${r.rental_duration}` : ''}</td>
                   <td>{r.quantity}</td>
-                  <td>{r.want_door_mechanism ? <Badge variant="warning">Evet</Badge> : '—'}</td>
-                  <td><Badge variant={STATUS_VARIANT[r.status]}>{STATUS_LABEL[r.status]}</Badge></td>
+                  <td>{r.want_door_mechanism ? <Badge status={{ variant: 'warning', label: 'Evet' }} /> : '—'}</td>
+                  <td><Badge status={{ variant: STATUS_VARIANT[r.status], label: STATUS_LABEL[r.status] }} /></td>
                   <td style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>{new Date(r.created_at).toLocaleDateString('tr-TR')}</td>
                   <td>
                     <button className="btn btn--ghost btn--sm" onClick={() => setSelected(r)} title="Detay">
