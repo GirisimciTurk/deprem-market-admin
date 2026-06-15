@@ -18,6 +18,7 @@ import {
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
+import { CarrierLogo } from '../../components/ui/CarrierLogo'
 import Pagination from '../../components/ui/Pagination'
 import { LoadingState } from '../../components/ui/Spinner'
 import { ErrorState } from '../../components/ui/StateBox'
@@ -648,10 +649,9 @@ function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void 
                     <td>
                       <Badge status={fulfillmentStatusBadge(o.fulfillment_status)} />
                       {o.tracking_number && (
-                        <div style={{ fontSize: '0.75rem', marginTop: '4px' }}>
-                          <span className="muted">
-                            {o.carrier ? `${o.carrier}: ` : ''}{o.tracking_number}
-                          </span>
+                        <div style={{ fontSize: '0.75rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                          {o.carrier && <CarrierLogo code={o.carrier} height={14} />}
+                          <span className="muted">{o.tracking_number}</span>
                           {o.tracking_url && (
                             <a
                               href={o.tracking_url}

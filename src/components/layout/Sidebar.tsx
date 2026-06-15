@@ -26,6 +26,7 @@ import {
   Award,
   Tag,
   Truck,
+  FolderTree,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -47,7 +48,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
       { path: '/seller-scorecards', icon: Award, label: 'Performans Karneleri' },
       { path: '/seller-campaigns', icon: Tag, label: 'Kampanyalar' },
       { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
-      { path: '/havar-requests', icon: Plane, label: 'HAVAR Talepleri' },
+      { path: '/havar-requests', icon: Plane, label: 'HavarTek Talepleri' },
       { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
       { path: '/commission-rules', icon: Calculator, label: 'Komisyon Oranları' },
       { path: '/cargo-tariff', icon: Truck, label: 'Kargo Tarifesi' },
@@ -65,6 +66,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
   {
     title: 'Gözetim',
     items: [
+      { path: '/categories', icon: FolderTree, label: 'Kategoriler' },
       { path: '/products', icon: Package, label: 'Ürünler' },
       { path: '/orders', icon: ShoppingCart, label: 'Siparişler' },
       { path: '/returns', icon: Undo2, label: 'İadeler' },

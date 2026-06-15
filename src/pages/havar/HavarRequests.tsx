@@ -95,7 +95,7 @@ export default function HavarRequests() {
 
   return (
     <div>
-      <Header title="HAVAR Talepleri" subtitle="Drone hava aracı ön alım ve ön kiralama talepleri" />
+      <Header title="HavarTek Talepleri" subtitle="Drone hava aracı ön alım ve ön kiralama talepleri" />
 
       <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
@@ -129,7 +129,7 @@ export default function HavarRequests() {
       ) : requests.length === 0 ? (
         <div className="card" style={{ padding: 40, textAlign: 'center', color: 'var(--text-tertiary)' }}>
           <Plane size={32} style={{ marginBottom: 8, opacity: 0.5 }} />
-          <p>Henüz HAVAR talebi yok.</p>
+          <p>Henüz HavarTek talebi yok.</p>
         </div>
       ) : (
         <div className="card" style={{ overflow: 'hidden', opacity: isFetching ? 0.7 : 1 }}>
@@ -172,7 +172,7 @@ export default function HavarRequests() {
       <Pagination offset={offset} limit={LIMIT} count={count} onChange={setOffset} />
 
       {selected && (
-        <Modal title={`HAVAR ${TYPE_LABEL[selected.type]} Talebi`} onClose={() => setSelected(null)} size="md">
+        <Modal title={`HavarTek ${TYPE_LABEL[selected.type]} Talebi`} onClose={() => setSelected(null)} size="md">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <Row icon={<Users size={15} />} label="Talep Sahibi" value={`${selected.full_name} (${BUYER_LABEL[selected.buyer_type]})`} />
             <Row icon={<Mail size={15} />} label="E-posta" value={selected.email} />
