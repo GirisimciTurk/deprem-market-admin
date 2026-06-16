@@ -1,16 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { Receipt, Search, Eye, Send, Info, Download, ArrowRight } from 'lucide-react'
+import { Receipt, Search, Eye, Send, Info, Download, ArrowRight, Printer, CheckCircle } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
 import Pagination from '../../components/ui/Pagination'
-import { LoadingState } from '../../components/ui/Spinner'
+import { LoadingState, Spinner } from '../../components/ui/Spinner'
 import { ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
 import { useDebounce } from '../../lib/useDebounce'
 import { api } from '../../lib/api'
 import { formatMoney } from '../../lib/format'
+import { printInvoice } from '../../lib/invoice-print'
 import type { StatusMeta } from '../../lib/statusLabels'
 
 const LIMIT = 20
@@ -258,6 +259,13 @@ export default function Invoices() {
                           >
                             <Eye size={14} />
                           </button>
+                          <button
+                            className="btn btn--secondary btn--icon btn--sm"
+                            title="Yazdır / PDF"
+                            onClick={() => printInvoice(inv)}
+                          >
+                            <Printer size={14} />
+                          </button>
                           {inv.status !== 'sent' && <SendButton invoice={inv} />}
                         </div>
                       </td>
@@ -306,6 +314,7 @@ function DetailModal({ invoice, onClose }: { invoice: Invoice; onClose: () => vo
   const { notify } = useToast()
   const qc = useQueryClient()
   const [showUbl, setShowUbl] = useState(false)
+  const [manualNo, setManualNo] = useState(invoice.invoice_number ?? '')
   const lines = invoice.lines ?? []
   const currency = invoice.currency_code
   const address = formatAddress(invoice.recipient_address)
@@ -314,6 +323,21 @@ function DetailModal({ invoice, onClose }: { invoice: Invoice; onClose: () => vo
     mutationFn: () => api.post<{ ok: boolean; result: unknown }>(`/admin/invoices/${invoice.id}/send`, {}),
     onSuccess: () => {
       notify('Fatura gönderildi.')
+      qc.invalidateQueries({ queryKey: ['invoices'] })
+      onClose()
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
+  // Manuel kesim: başka yerde (muhasebeci / entegratör paneli / GİB) kesilen resmi
+  // fatura numarasını gir → durum "Düzenlendi" (sent) olur. Entegratör API'si gerekmez.
+  const markMutation = useMutation({
+    mutationFn: () =>
+      api.post<{ invoice: Invoice }>(`/admin/invoices/${invoice.id}/mark-issued`, {
+        invoice_number: manualNo.trim(),
+      }),
+    onSuccess: () => {
+      notify('Fatura "Düzenlendi" olarak işaretlendi.')
       qc.invalidateQueries({ queryKey: ['invoices'] })
       onClose()
     },
@@ -341,13 +365,17 @@ function DetailModal({ invoice, onClose }: { invoice: Invoice; onClose: () => vo
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button className="btn btn--secondary" onClick={onClose}>Kapat</button>
+          <button className="btn btn--secondary" onClick={() => printInvoice(invoice)}>
+            <Printer size={16} /> Yazdır / PDF
+          </button>
           {invoice.status !== 'sent' && (
             <button
               className="btn btn--primary"
               onClick={() => sendMutation.mutate()}
               disabled={sendMutation.isPending}
+              title="Bağlı e-fatura entegratörüne gönderir (tanımlı değilse taslak kalır)"
             >
-              <Send size={16} /> {sendMutation.isPending ? 'Gönderiliyor...' : 'Gönder'}
+              <Send size={16} /> {sendMutation.isPending ? 'Gönderiliyor...' : 'Entegratöre Gönder'}
             </button>
           )}
         </div>
@@ -461,6 +489,40 @@ function DetailModal({ invoice, onClose }: { invoice: Invoice; onClose: () => vo
           <TotalRow label="Genel Toplam" value={formatMoney(invoice.grand_total, currency)} strong />
         </div>
       </div>
+
+      {/* Manuel kesim — resmi fatura no gir + Düzenlendi işaretle (entegratör gerekmez) */}
+      {invoice.status !== 'sent' && (
+        <div
+          style={{
+            padding: '14px 16px',
+            marginBottom: '20px',
+            background: 'var(--bg-secondary)',
+            border: '1px solid var(--border-primary)',
+            borderRadius: 'var(--radius-md)',
+          }}
+        >
+          <div style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>Manuel Fatura Kaydı</div>
+          <div className="muted" style={{ fontSize: '0.8rem', marginBottom: '10px' }}>
+            Faturayı muhasebeci / entegratör paneli / GİB e-Arşiv'de kestiysen resmi numarasını gir → durum "Düzenlendi" olur.
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Resmi fatura no (ör. EAR2026000001234)"
+              value={manualNo}
+              onChange={(e) => setManualNo(e.target.value)}
+              style={{ flex: 1, minWidth: '220px' }}
+            />
+            <button
+              className="btn btn--primary"
+              onClick={() => markMutation.mutate()}
+              disabled={markMutation.isPending || !manualNo.trim()}
+            >
+              {markMutation.isPending ? <Spinner size={14} /> : <CheckCircle size={16} />} Düzenlendi İşaretle
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* UBL payload */}
       {invoice.ubl_payload && (
