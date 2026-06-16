@@ -31,6 +31,8 @@ const CargoTariff = lazy(() => import('./pages/cargo-tariff/CargoTariff'))
 const SellerContracts = lazy(() => import('./pages/seller-contracts/SellerContracts'))
 const ProductApprovals = lazy(() => import('./pages/product-approvals/ProductApprovals'))
 const CommissionRules = lazy(() => import('./pages/commission-rules/CommissionRules'))
+const CategoryAttributes = lazy(() => import('./pages/category-attributes/CategoryAttributes'))
+const Brands = lazy(() => import('./pages/brands/Brands'))
 const Invoices = lazy(() => import('./pages/invoices/Invoices'))
 const Promotions = lazy(() => import('./pages/promotions/Promotions'))
 const Reviews = lazy(() => import('./pages/reviews/Reviews'))
@@ -77,6 +79,8 @@ export default function App() {
                     <Route path="/product-approvals" element={<RoleGuard><ProductApprovals /></RoleGuard>} />
                     <Route path="/categories" element={<RoleGuard><Categories /></RoleGuard>} />
                     <Route path="/commission-rules" element={<RoleGuard><CommissionRules /></RoleGuard>} />
+                    <Route path="/category-attributes" element={<RoleGuard><CategoryAttributes /></RoleGuard>} />
+                    <Route path="/brands" element={<RoleGuard><Brands /></RoleGuard>} />
                     <Route path="/invoices" element={<RoleGuard><Invoices /></RoleGuard>} />
                     <Route path="/resellers" element={<RoleGuard><Resellers /></RoleGuard>} />
                     <Route path="/havar-requests" element={<RoleGuard><HavarRequests /></RoleGuard>} />

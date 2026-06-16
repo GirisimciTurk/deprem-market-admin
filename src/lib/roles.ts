@@ -15,7 +15,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 }
 
 // Yalnızca admin'in erişebildiği yollar
-export const ADMIN_ONLY_PATHS = ['/settings', '/promotions', '/customers', '/resellers', '/havar-requests', '/sellers', '/seller-scorecards', '/seller-campaigns', '/seller-reviews', '/seller-contracts', '/commission-rules', '/cargo-tariff', '/categories', '/product-approvals', '/invoices']
+export const ADMIN_ONLY_PATHS = ['/settings', '/promotions', '/customers', '/resellers', '/havar-requests', '/sellers', '/seller-scorecards', '/seller-campaigns', '/seller-reviews', '/seller-contracts', '/commission-rules', '/cargo-tariff', '/categories', '/category-attributes', '/brands', '/product-approvals', '/invoices']
 
 export function normalizeRole(raw: unknown): Role {
   return raw === 'staff' ? 'staff' : 'admin'

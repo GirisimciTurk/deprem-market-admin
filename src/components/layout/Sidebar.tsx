@@ -27,6 +27,8 @@ import {
   Tag,
   Truck,
   FolderTree,
+  SlidersHorizontal,
+  Bookmark,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -67,6 +69,8 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
     title: 'Gözetim',
     items: [
       { path: '/categories', icon: FolderTree, label: 'Kategoriler' },
+      { path: '/category-attributes', icon: SlidersHorizontal, label: 'Kategori Özellikleri' },
+      { path: '/brands', icon: Bookmark, label: 'Markalar' },
       { path: '/products', icon: Package, label: 'Ürünler' },
       { path: '/orders', icon: ShoppingCart, label: 'Siparişler' },
       { path: '/returns', icon: Undo2, label: 'İadeler' },
