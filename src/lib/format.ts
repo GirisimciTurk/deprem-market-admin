@@ -29,6 +29,27 @@ export function formatMoney(amount: number | null | undefined, currencyCode = 't
   }
 }
 
+/**
+ * Format a major-unit TRY amount as currency.
+ *
+ * Özel hizmet talebi tutarları (teklif, keşif ücreti, kapora, bakiye) Medusa
+ * sipariş tutarlarının aksine TAM LİRA (major) saklanır; `formatMoney`'nin /100
+ * bölmesi burada yanlış olur. Bu yardımcı bölme yapmadan biçimlendirir.
+ */
+export function formatLira(value: number | null | undefined): string {
+  const n = typeof value === 'number' ? value : 0
+  try {
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }).format(n)
+  } catch {
+    return `${n.toLocaleString('tr-TR')} ₺`
+  }
+}
+
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '-'
   try {

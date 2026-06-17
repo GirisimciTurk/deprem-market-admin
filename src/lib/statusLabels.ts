@@ -58,6 +58,44 @@ const RETURN_STATUS: Record<string, StatusMeta> = {
   canceled: { label: 'İptal', variant: 'danger' },
 }
 
+// Özel hizmet talebi durum makinesi (keşif → teklif → montaj).
+const SERVICE_REQUEST_STATUS: Record<string, StatusMeta> = {
+  talep: { label: 'Yeni Talep', variant: 'warning' },
+  kesif_planlandi: { label: 'Keşif Planlandı', variant: 'info' },
+  kesif_yapildi: { label: 'Keşif Yapıldı', variant: 'info' },
+  teklif_gonderildi: { label: 'Teklif Gönderildi', variant: 'warning' },
+  onaylandi: { label: 'Onaylandı', variant: 'success' },
+  reddedildi: { label: 'Reddedildi', variant: 'danger' },
+  tedarik: { label: 'Tedarikte', variant: 'info' },
+  teslim_edildi: { label: 'Sahaya Teslim', variant: 'info' },
+  montaj_planlandi: { label: 'Montaj Planlandı', variant: 'info' },
+  montaj_yapildi: { label: 'Montaj Yapıldı', variant: 'info' },
+  tamamlandi: { label: 'Tamamlandı', variant: 'success' },
+  iptal: { label: 'İptal', variant: 'danger' },
+}
+
+// Hizmet talebi ödeme aşaması (escrow mantığı).
+const SERVICE_PAYMENT_STATUS: Record<string, StatusMeta> = {
+  none: { label: 'Ödeme Yok', variant: 'neutral' },
+  survey_paid: { label: 'Keşif Ücreti Ödendi', variant: 'info' },
+  deposit_paid: { label: 'Kapora Ödendi', variant: 'info' },
+  paid: { label: 'Tamamı Ödendi', variant: 'success' },
+}
+
+// Müşterinin teklife verdiği karar.
+const SERVICE_OFFER_DECISION: Record<string, StatusMeta> = {
+  pending: { label: 'Müşteri Onayı Bekleniyor', variant: 'warning' },
+  accepted: { label: 'Müşteri Onayladı', variant: 'success' },
+  rejected: { label: 'Müşteri Reddetti', variant: 'danger' },
+}
+
+// Bayiye escrow'dan aktarım (payout) durumu.
+const SERVICE_PAYOUT_STATUS: Record<string, StatusMeta> = {
+  pending: { label: 'Hakediş Bekliyor', variant: 'neutral' },
+  eligible: { label: 'Hakedişe Geldi', variant: 'warning' },
+  paid: { label: 'Bayiye Aktarıldı', variant: 'success' },
+}
+
 function lookup(map: Record<string, StatusMeta>, key?: string): StatusMeta {
   if (!key) return { label: '-', variant: 'neutral' }
   return map[key] ?? { label: key, variant: 'neutral' }
@@ -69,5 +107,9 @@ export const fulfillmentStatus = (s?: string) => lookup(FULFILLMENT_STATUS, s)
 export const productStatus = (s?: string) => lookup(PRODUCT_STATUS, s)
 export const returnStatus = (s?: string) => lookup(RETURN_STATUS, s)
 export const sellerReviewStatus = (s?: string) => lookup(SELLER_REVIEW_STATUS, s)
+export const serviceRequestStatus = (s?: string) => lookup(SERVICE_REQUEST_STATUS, s)
+export const servicePaymentStatus = (s?: string) => lookup(SERVICE_PAYMENT_STATUS, s)
+export const serviceOfferDecision = (s?: string) => lookup(SERVICE_OFFER_DECISION, s)
+export const servicePayoutStatus = (s?: string) => lookup(SERVICE_PAYOUT_STATUS, s)
 
 export type { BadgeVariant, StatusMeta }

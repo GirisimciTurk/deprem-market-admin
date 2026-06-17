@@ -23,6 +23,7 @@ const Blog = lazy(() => import('./pages/blog/Blog'))
 const Categories = lazy(() => import('./pages/categories/Categories'))
 const Resellers = lazy(() => import('./pages/resellers/Resellers'))
 const HavarRequests = lazy(() => import('./pages/havar/HavarRequests'))
+const ServiceRequests = lazy(() => import('./pages/service-requests/ServiceRequests'))
 const Sellers = lazy(() => import('./pages/sellers/Sellers'))
 const SellerDetail = lazy(() => import('./pages/sellers/SellerDetail'))
 const SellerScorecards = lazy(() => import('./pages/seller-scorecards/SellerScorecards'))
@@ -84,6 +85,7 @@ export default function App() {
                     <Route path="/invoices" element={<RoleGuard><Invoices /></RoleGuard>} />
                     <Route path="/resellers" element={<RoleGuard><Resellers /></RoleGuard>} />
                     <Route path="/havar-requests" element={<RoleGuard><HavarRequests /></RoleGuard>} />
+                    <Route path="/service-requests" element={<RoleGuard><ServiceRequests /></RoleGuard>} />
                     <Route path="/promotions" element={<RoleGuard><Promotions /></RoleGuard>} />
                     <Route path="/reviews" element={<Reviews />} />
                     <Route path="/seller-reviews" element={<RoleGuard><SellerReviews /></RoleGuard>} />
