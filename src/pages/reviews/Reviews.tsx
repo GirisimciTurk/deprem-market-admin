@@ -31,6 +31,9 @@ interface ProductReview {
   status: 'pending' | 'approved' | 'spam'
   createdAt: string
   images: string[]
+  aiAction: string | null
+  aiConfidence: number | null
+  aiReason: string | null
 }
 
 interface BackendReview {
@@ -42,6 +45,9 @@ interface BackendReview {
   status: 'pending' | 'approved' | 'spam'
   created_at: string
   images: string[] | null
+  ai_action: string | null
+  ai_confidence: number | null
+  ai_reason: string | null
 }
 
 function mapReview(r: BackendReview): ProductReview {
@@ -54,7 +60,40 @@ function mapReview(r: BackendReview): ProductReview {
     status: r.status,
     createdAt: r.created_at,
     images: Array.isArray(r.images) ? r.images : [],
+    aiAction: r.ai_action ?? null,
+    aiConfidence: r.ai_confidence ?? null,
+    aiReason: r.ai_reason ?? null,
   }
+}
+
+/** AI moderasyon kararını küçük bir rozet olarak gösterir. */
+function AiBadge({ action, confidence, reason }: { action: string | null; confidence: number | null; reason: string | null }) {
+  if (!action) return null
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    auto_approve: { label: 'AI: Onayladı', color: '#047857', bg: '#ecfdf5' },
+    auto_reject: { label: 'AI: Reddetti', color: '#b91c1c', bg: '#fef2f2' },
+    needs_review: { label: 'AI: İncele', color: '#b45309', bg: '#fffbeb' },
+    error: { label: 'AI: Hata', color: '#6b7280', bg: '#f3f4f6' },
+  }
+  const m = map[action] ?? map.error
+  return (
+    <div style={{ marginTop: 8, display: 'flex', alignItems: 'flex-start', gap: 6, flexWrap: 'wrap' }}>
+      <span
+        title={reason || ''}
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.7rem', fontWeight: 700,
+          padding: '2px 8px', borderRadius: 999, color: m.color, background: m.bg, whiteSpace: 'nowrap',
+        }}
+      >
+        🤖 {m.label}{confidence != null ? ` %${confidence}` : ''}
+      </span>
+      {reason && (
+        <span style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', fontStyle: 'italic', maxWidth: 360 }}>
+          {reason}
+        </span>
+      )}
+    </div>
+  )
 }
 
 export default function Reviews() {
@@ -308,6 +347,7 @@ export default function Reviews() {
                           ))}
                         </div>
                       )}
+                      <AiBadge action={review.aiAction} confidence={review.aiConfidence} reason={review.aiReason} />
                     </td>
                     <td>
                       <Badge

@@ -23,6 +23,18 @@ interface ApprovalVariant {
   prices: ApprovalVariantPrice[]
 }
 
+interface AiModeration {
+  action?: string
+  verdict?: string
+  confidence?: number
+  reason?: string
+}
+interface AiSuggestions {
+  suggested_category?: string
+  description?: string
+  bullet_points?: string[]
+  tags?: string[]
+}
 interface ApprovalProduct {
   id: string
   title: string
@@ -32,6 +44,44 @@ interface ApprovalProduct {
   created_at: string
   seller: { id: string; name: string; handle: string } | null
   variants: ApprovalVariant[]
+  metadata: { ai_moderation?: AiModeration; ai_suggestions?: AiSuggestions } | null
+}
+
+/** Ürünün AI değerlendirmesini ve içerik önerisini kompakt gösterir. */
+function ProductAiInfo({ metadata }: { metadata: ApprovalProduct['metadata'] }) {
+  const mod = metadata?.ai_moderation
+  const sug = metadata?.ai_suggestions
+  if (!mod && !sug) return null
+  const map: Record<string, { label: string; color: string; bg: string }> = {
+    auto_approve: { label: 'AI: Onaylanabilir', color: '#047857', bg: '#ecfdf5' },
+    auto_reject: { label: 'AI: Reddedildi', color: '#b91c1c', bg: '#fef2f2' },
+    needs_review: { label: 'AI: İncele', color: '#b45309', bg: '#fffbeb' },
+    error: { label: 'AI: Hata', color: '#6b7280', bg: '#f3f4f6' },
+  }
+  const m = mod?.action ? (map[mod.action] ?? map.error) : null
+  return (
+    <div style={{ marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {m && (
+        <span
+          title={mod?.reason || ''}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px', borderRadius: 999, color: m.color, background: m.bg, width: 'fit-content' }}
+        >
+          🤖 {m.label}{mod?.confidence != null ? ` %${mod.confidence}` : ''}
+        </span>
+      )}
+      {mod?.reason && <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', fontStyle: 'italic', maxWidth: 320 }}>{mod.reason}</span>}
+      {sug && (
+        <details style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>
+          <summary style={{ cursor: 'pointer', color: 'var(--accent-primary)' }}>💡 AI içerik önerisi</summary>
+          <div style={{ marginTop: 4, lineHeight: 1.5 }}>
+            {sug.suggested_category && <div><b>Kategori:</b> {sug.suggested_category}</div>}
+            {sug.description && <div><b>Açıklama:</b> {sug.description}</div>}
+            {sug.tags?.length ? <div><b>Etiketler:</b> {sug.tags.join(', ')}</div> : null}
+          </div>
+        </details>
+      )}
+    </div>
+  )
 }
 
 interface ApprovalsResponse {
@@ -165,6 +215,7 @@ export default function ProductApprovals() {
                             <div>
                               <div style={{ fontWeight: 600 }}>{p.title}</div>
                               <div className="muted" style={{ fontSize: '0.76rem' }}>{p.handle}</div>
+                              <ProductAiInfo metadata={p.metadata} />
                             </div>
                           </div>
                         </td>
