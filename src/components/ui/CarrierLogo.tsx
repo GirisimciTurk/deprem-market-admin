@@ -4,10 +4,10 @@ import { useState } from 'react'
  * Kargo firması logosu. Gerçek logo PNG'leri public/cargo/<kod>.png konumundan
  * yüklenir; dosya yoksa marka renkli badge'e düşer. PNG eklenince otomatik görünür.
  */
-type Meta = { label: string; bg: string; fg: string }
+type Meta = { label: string; bg: string; fg: string; file?: string }
 
 const CARRIERS: Record<string, Meta> = {
-  yurtici: { label: 'Yurtiçi Kargo', bg: '#f37021', fg: '#fff' },
+  yurtici: { label: 'Yurtiçi Kargo', bg: '#f37021', fg: '#fff', file: 'yurtici.svg' },
   aras: { label: 'Aras Kargo', bg: '#005ca9', fg: '#fff' },
   mng: { label: 'MNG Kargo', bg: '#e2001a', fg: '#fff' },
   ptt: { label: 'PTT Kargo', bg: '#005bab', fg: '#ffd200' },
@@ -70,7 +70,7 @@ export function CarrierLogo({
 
   const img = (
     <img
-      src={`/cargo/${c}.png`}
+      src={`/cargo/${meta.file ?? `${c}.png`}`}
       alt={label}
       title={label}
       onError={() => setErr(true)}
