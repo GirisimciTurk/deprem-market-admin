@@ -44,6 +44,15 @@
   box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
 }
 
+/* depremTek resmi logo görseli (gradient kutu yerine) */
+.sidebar__logo-img {
+  height: 40px;
+  width: auto;
+  min-width: 40px;
+  object-fit: contain;
+  user-select: none;
+}
+
 .sidebar__logo-text {
   display: flex;
   flex-direction: column;

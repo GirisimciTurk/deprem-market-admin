@@ -39,6 +39,12 @@
   background: var(--accent-primary);
   color: white;
 }
+.login__brand-logo {
+  height: 54px;
+  width: auto;
+  object-fit: contain;
+  user-select: none;
+}
 
 .login__title {
   font-size: 1.25rem;
