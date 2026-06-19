@@ -33,9 +33,26 @@ interface ResellerApplication {
   phone: string
   city: string
   tax_number: string
+  // Backend'in otomatik vergi no kontrolü (offline VKN/TCKN sağlaması)
+  tax_number_check?: { valid: boolean; type: 'vkn' | 'tckn' | null; reason: string; normalized: string }
   status: 'pending' | 'approved' | 'rejected' | 'suspended'
   message: string
   created_at: string
+}
+
+/** Otomatik vergi no doğrulama rozeti (VKN/TCKN sağlaması). */
+function TaxCheckBadge({ check }: { check?: ResellerApplication['tax_number_check'] }) {
+  if (!check) return null
+  const label = check.type === 'vkn' ? 'VKN' : check.type === 'tckn' ? 'TCKN' : ''
+  const bg = check.valid ? 'rgba(22,163,74,0.12)' : 'rgba(225,29,72,0.12)'
+  const color = check.valid ? 'var(--accent-success)' : 'var(--accent-danger)'
+  return (
+    <span title={check.reason}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', fontWeight: 700,
+        padding: '1px 7px', borderRadius: 999, background: bg, color, marginLeft: 6, verticalAlign: 'middle' }}>
+      {check.valid ? '✓' : '⚠'} {check.valid ? `Geçerli ${label}` : 'Şüpheli'}
+    </span>
+  )
 }
 
 export default function Resellers() {
@@ -183,7 +200,8 @@ export default function Resellers() {
                           <Building size={14} className="muted" /> {app.company_name}
                         </div>
                         <div className="muted" style={{ fontSize: '0.78rem', marginTop: '2px' }}>
-                          Vergi No: {app.tax_number}
+                          Vergi No: {app.tax_number || '—'}
+                          <TaxCheckBadge check={app.tax_number_check} />
                         </div>
                       </div>
                     </td>
@@ -307,7 +325,10 @@ export default function Resellers() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <MapPin size={12} /> {selectedApp.city}
                   </div>
-                  <div>Vergi No: {selectedApp.tax_number}</div>
+                  <div>
+                    Vergi No: {selectedApp.tax_number || '—'}
+                    <TaxCheckBadge check={selectedApp.tax_number_check} />
+                  </div>
                 </div>
               </div>
             </div>
