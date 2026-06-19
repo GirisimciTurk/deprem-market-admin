@@ -35,6 +35,7 @@ import {
   ChevronRight,
   LogOut,
   Sparkles,
+  BarChart3,
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -46,6 +47,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
     title: null,
     items: [
       { path: '/', icon: LayoutDashboard, label: 'Genel Bakış' },
+      { path: '/analytics', icon: BarChart3, label: 'Davranış Analitiği' },
       { path: '/ai-insights', icon: Sparkles, label: 'AI İçgörüler' },
     ],
   },
