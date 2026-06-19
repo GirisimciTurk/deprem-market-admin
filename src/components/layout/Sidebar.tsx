@@ -14,6 +14,7 @@ import {
   Plane,
   HardHat,
   MessageSquare,
+  MessagesSquare,
   MessageCircleQuestion,
   Percent,
   Undo2,
@@ -33,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
+  Sparkles,
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -42,7 +44,10 @@ import './Sidebar.css'
 const navGroups: { title: string | null; items: { path: string; icon: typeof Package; label: string }[] }[] = [
   {
     title: null,
-    items: [{ path: '/', icon: LayoutDashboard, label: 'Genel Bakış' }],
+    items: [
+      { path: '/', icon: LayoutDashboard, label: 'Genel Bakış' },
+      { path: '/ai-insights', icon: Sparkles, label: 'AI İçgörüler' },
+    ],
   },
   {
     title: 'Pazaryeri',
@@ -64,6 +69,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
       { path: '/product-approvals', icon: ClipboardCheck, label: 'Ürün Onayları' },
       { path: '/reviews', icon: MessageSquare, label: 'Yorumlar' },
       { path: '/product-questions', icon: MessageCircleQuestion, label: 'Sorular' },
+      { path: '/conversations', icon: MessagesSquare, label: 'Mesajlaşmalar' },
       { path: '/seller-reviews', icon: Star, label: 'Satıcı Değerlendirmeleri' },
     ],
   },

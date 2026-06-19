@@ -43,6 +43,11 @@ const CARRIERS: { code: CarrierCode; label: string }[] = [
   { code: 'ptt', label: 'PTT Kargo' },
 ]
 
+// ŞİMDİLİK KİLİT — kargo firması seçimi kapalı. Herkes platformun anlaşmalı
+// kargosuyla (Yurtiçi) gönderir. Seçimi tekrar açmak için `false` yap
+// (backend lib/cargo.ts + vendor lib/carriers.ts ile uyumlu olsun).
+const LOCK_PLATFORM_CARRIER = true
+
 interface Seller {
   id: string
   handle: string
@@ -383,7 +388,8 @@ function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; hasLogin: 
         tax_number: form.tax_number.trim() || null,
         iban: form.iban.trim() || null,
         account_holder: form.account_holder.trim() || null,
-        default_carrier: form.default_carrier || null,
+        // Kilitliyken kargo firması alanını gönderme (mevcut değer korunur).
+        default_carrier: LOCK_PLATFORM_CARRIER ? undefined : (form.default_carrier || null),
         commission_rate: Number(form.commission_rate),
         status: form.status,
       }),
@@ -434,10 +440,14 @@ function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; hasLogin: 
               onChange={(e) => set('commission_rate', Number(e.target.value))} />
           </Field>
           <Field label="Varsayılan Kargo Firması">
-            <select value={form.default_carrier} onChange={(e) => set('default_carrier', e.target.value as '' | CarrierCode)}>
-              <option value="">Seçilmedi</option>
-              {CARRIERS.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
-            </select>
+            {LOCK_PLATFORM_CARRIER ? (
+              <input type="text" value="Yurtiçi Kargo (anlaşmalı — seçim kapalı)" disabled readOnly />
+            ) : (
+              <select value={form.default_carrier} onChange={(e) => set('default_carrier', e.target.value as '' | CarrierCode)}>
+                <option value="">Seçilmedi</option>
+                {CARRIERS.map((c) => <option key={c.code} value={c.code}>{c.label}</option>)}
+              </select>
+            )}
           </Field>
         </Grid>
         <p className="muted" style={{ fontSize: '0.78rem', marginTop: '-4px' }}>

@@ -28,6 +28,7 @@ const Sellers = lazy(() => import('./pages/sellers/Sellers'))
 const SellerDetail = lazy(() => import('./pages/sellers/SellerDetail'))
 const SellerScorecards = lazy(() => import('./pages/seller-scorecards/SellerScorecards'))
 const SellerCampaigns = lazy(() => import('./pages/seller-campaigns/SellerCampaigns'))
+const AiInsights = lazy(() => import('./pages/ai-insights/AiInsights'))
 const CargoTariff = lazy(() => import('./pages/cargo-tariff/CargoTariff'))
 const SellerContracts = lazy(() => import('./pages/seller-contracts/SellerContracts'))
 const ProductApprovals = lazy(() => import('./pages/product-approvals/ProductApprovals'))
@@ -39,6 +40,7 @@ const Promotions = lazy(() => import('./pages/promotions/Promotions'))
 const Reviews = lazy(() => import('./pages/reviews/Reviews'))
 const SellerReviews = lazy(() => import('./pages/seller-reviews/SellerReviews'))
 const Questions = lazy(() => import('./pages/questions/Questions'))
+const Conversations = lazy(() => import('./pages/conversations/Conversations'))
 const SettingsPage = lazy(() => import('./pages/settings/Settings'))
 const WarehouseInventory = lazy(() => import('./pages/inventory/WarehouseInventory'))
 const StockMovements = lazy(() => import('./pages/stock-movements/StockMovements'))
@@ -75,6 +77,7 @@ export default function App() {
                     <Route path="/sellers" element={<RoleGuard><Sellers /></RoleGuard>} />
                     <Route path="/sellers/:id" element={<RoleGuard><SellerDetail /></RoleGuard>} />
                     <Route path="/seller-scorecards" element={<RoleGuard><SellerScorecards /></RoleGuard>} />
+                    <Route path="/ai-insights" element={<RoleGuard><AiInsights /></RoleGuard>} />
                     <Route path="/seller-campaigns" element={<RoleGuard><SellerCampaigns /></RoleGuard>} />
                     <Route path="/cargo-tariff" element={<RoleGuard><CargoTariff /></RoleGuard>} />
                     <Route path="/product-approvals" element={<RoleGuard><ProductApprovals /></RoleGuard>} />
@@ -90,6 +93,7 @@ export default function App() {
                     <Route path="/reviews" element={<Reviews />} />
                     <Route path="/seller-reviews" element={<RoleGuard><SellerReviews /></RoleGuard>} />
                     <Route path="/product-questions" element={<RoleGuard><Questions /></RoleGuard>} />
+                    <Route path="/conversations" element={<RoleGuard><Conversations /></RoleGuard>} />
                     <Route path="/seller-contracts" element={<RoleGuard><SellerContracts /></RoleGuard>} />
                     <Route path="/inventory" element={<WarehouseInventory />} />
                     <Route path="/stock-movements" element={<StockMovements />} />

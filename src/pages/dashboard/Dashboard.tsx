@@ -1,10 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
-import { toMajor, formatMoney } from '../../lib/format'
+import { formatMoney } from '../../lib/format'
 import {
-  TrendingUp,
-  TrendingDown,
   ShoppingCart,
   Users,
   DollarSign,
@@ -15,135 +13,23 @@ import {
   Percent,
   Truck,
 } from 'lucide-react'
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-} from 'recharts'
-import {
-  startOfDay,
-  subDays,
-  startOfMonth,
-  subMonths,
-  eachHourOfInterval,
-  eachDayOfInterval,
-  eachMonthOfInterval,
-  format as fmtDate,
-  formatDistanceToNow,
-} from 'date-fns'
-import { tr } from 'date-fns/locale'
 import Header from '../../components/layout/Header'
+import {
+  type TimeRange,
+  type OrderRow,
+  type ChartPoint,
+  RANGE_LABELS,
+  REVENUE_TITLE,
+  FULFILLMENT_LABELS,
+  isPlaced,
+  orderRevenue,
+  getWindow,
+  getBuckets,
+  pct,
+  relTime,
+} from './dashboard-utils'
+import { StatCard, RevenueChart, StatusDonut } from './dashboard-widgets'
 import './Dashboard.css'
-
-// ─── TYPES ───────────────────────────────────────────────────────────
-type TimeRange = 'today' | '7days' | '30days' | 'all'
-
-interface OrderRow {
-  id: string
-  display_id: number
-  email?: string
-  total?: number
-  currency_code?: string
-  created_at: string
-  payment_status?: string
-  fulfillment_status?: string
-  status?: string
-  shipping_address?: { first_name?: string; last_name?: string } | null
-}
-
-interface ChartPoint {
-  name: string
-  value: number // major-unit revenue
-  orders: number
-}
-
-const COLORS = ['#F08C1A', '#10b981', '#3b82f6', '#f59e0b', '#ef4444']
-
-const RANGE_LABELS: Record<TimeRange, string> = {
-  today: 'Bugün',
-  '7days': 'Son 7 Gün',
-  '30days': 'Son 30 Gün',
-  all: 'Tüm Zamanlar',
-}
-
-const REVENUE_TITLE: Record<TimeRange, string> = {
-  today: 'Günlük Ciro',
-  '7days': 'Haftalık Ciro',
-  '30days': 'Aylık Ciro',
-  all: 'Toplam Ciro',
-}
-
-// Sipariş kargo durumu → kullanıcı dostu etiket (donut için)
-const FULFILLMENT_LABELS: Record<string, string> = {
-  not_fulfilled: 'Hazırlanıyor',
-  partially_fulfilled: 'Kısmi Hazır',
-  fulfilled: 'Hazırlandı',
-  partially_shipped: 'Kısmi Kargo',
-  shipped: 'Kargoda',
-  partially_delivered: 'Kısmi Teslim',
-  delivered: 'Teslim Edildi',
-  canceled: 'İptal',
-}
-
-const isPlaced = (o: OrderRow) => o.status !== 'canceled'
-const orderRevenue = (o: OrderRow) => toMajor(o.total)
-
-// ─── Zaman penceresi + bir önceki eşit pencere ──────────────────────
-function getWindow(range: TimeRange, now: Date) {
-  if (range === 'today') {
-    const start = startOfDay(now)
-    return { start, end: now, prevStart: subDays(start, 1), prevEnd: start }
-  }
-  if (range === '7days') {
-    const start = subDays(startOfDay(now), 6)
-    return { start, end: now, prevStart: subDays(start, 7), prevEnd: start }
-  }
-  if (range === '30days') {
-    const start = subDays(startOfDay(now), 29)
-    return { start, end: now, prevStart: subDays(start, 30), prevEnd: start }
-  }
-  return { start: new Date(0), end: now, prevStart: null, prevEnd: null }
-}
-
-// ─── Grafik kovaları (zaman ekseni) ─────────────────────────────────
-function getBuckets(range: TimeRange, now: Date, firstOrder: Date | null) {
-  if (range === 'today') {
-    return eachHourOfInterval({ start: startOfDay(now), end: now }).map((d) => ({
-      start: d,
-      label: fmtDate(d, 'HH:00'),
-    }))
-  }
-  if (range === '7days') {
-    return eachDayOfInterval({ start: subDays(startOfDay(now), 6), end: now }).map((d) => ({
-      start: d,
-      label: fmtDate(d, 'EEE', { locale: tr }),
-    }))
-  }
-  if (range === '30days') {
-    return eachDayOfInterval({ start: subDays(startOfDay(now), 29), end: now }).map((d) => ({
-      start: d,
-      label: fmtDate(d, 'd MMM', { locale: tr }),
-    }))
-  }
-  // all → aylık, ilk siparişten bugüne (en az son 6 ay)
-  const start = startOfMonth(firstOrder && firstOrder < subMonths(now, 5) ? firstOrder : subMonths(now, 5))
-  return eachMonthOfInterval({ start, end: now }).map((d) => ({
-    start: d,
-    label: fmtDate(d, 'MMM yy', { locale: tr }),
-  }))
-}
-
-function pct(curr: number, prev: number): { change: string; trend: 'up' | 'down' } {
-  if (prev <= 0) return { change: curr > 0 ? '+100%' : '—', trend: 'up' }
-  const diff = ((curr - prev) / prev) * 100
-  return { change: `${diff >= 0 ? '+' : ''}${diff.toFixed(1)}%`, trend: diff >= 0 ? 'up' : 'down' }
-}
 
 export default function Dashboard() {
   const [range, setRange] = useState<TimeRange>('7days')
@@ -430,75 +316,8 @@ export default function Dashboard() {
 
         {/* Charts */}
         <div className="dashboard__charts">
-          <div className="card dashboard__chart-card">
-            <div className="dashboard__chart-header">
-              <div>
-                <h3>Ciro & Sipariş Analizi</h3>
-                <p className="chart-subtitle">{RANGE_LABELS[range]} — gerçek sipariş verisi</p>
-              </div>
-              <span className={`badge ${m.revChange.trend === 'up' ? 'badge--success' : 'badge--danger'}`}>
-                {m.revChange.trend === 'up' ? <TrendingUp size={12} /> : <TrendingDown size={12} />} {m.revChange.change}
-              </span>
-            </div>
-            <div className="dashboard__chart">
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={m.chart}>
-                  <defs>
-                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="var(--accent-primary)" stopOpacity={0.2} />
-                      <stop offset="95%" stopColor="var(--accent-primary)" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(v) => `₺${v.toLocaleString('tr-TR')}`} />
-                  <Tooltip
-                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border-primary)', borderRadius: '8px', color: 'var(--text-primary)' }}
-                    formatter={(value: any, _n: any, p: any) => [`₺${Number(value).toLocaleString('tr-TR')} • ${p?.payload?.orders ?? 0} sipariş`, 'Gelir']}
-                  />
-                  <Area type="monotone" dataKey="value" stroke="var(--accent-primary)" strokeWidth={2.5} fillOpacity={1} fill="url(#colorValue)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Order Status Distribution (real) */}
-          <div className="card dashboard__chart-card">
-            <div className="dashboard__chart-header">
-              <div>
-                <h3>Sipariş Durum Dağılımı</h3>
-                <p className="chart-subtitle">{RANGE_LABELS[range]} içindeki siparişler</p>
-              </div>
-            </div>
-            <div className="dashboard__chart donut-chart-container">
-              {m.statusShare.length === 0 ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 220, color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
-                  Bu dönemde sipariş yok.
-                </div>
-              ) : (
-                <>
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie data={m.statusShare} cx="50%" cy="50%" innerRadius={65} outerRadius={85} paddingAngle={3} dataKey="value">
-                        {m.statusShare.map((_e, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(v) => `${v} sipariş`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="donut-legend">
-                    {m.statusShare.map((cat, index) => (
-                      <div key={index} className="donut-legend__item">
-                        <span className="donut-legend__bullet" style={{ backgroundColor: COLORS[index % COLORS.length] }}></span>
-                        <span className="donut-legend__name">{cat.name}</span>
-                        <span className="donut-legend__percentage">{cat.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
+          <RevenueChart data={m.chart} rangeLabel={RANGE_LABELS[range]} revChange={m.revChange} />
+          <StatusDonut data={m.statusShare} rangeLabel={RANGE_LABELS[range]} />
         </div>
 
         {/* Action Center */}
@@ -608,44 +427,3 @@ export default function Dashboard() {
   )
 }
 
-function relTime(date: string): string {
-  try {
-    return formatDistanceToNow(new Date(date), { addSuffix: true, locale: tr })
-  } catch {
-    return '-'
-  }
-}
-
-function StatCard({
-  title,
-  value,
-  change,
-  trend,
-  icon,
-  color,
-  showChange,
-}: {
-  title: string
-  value: string
-  change: string
-  trend: 'up' | 'down'
-  icon: React.ReactNode
-  color: string
-  showChange: boolean
-}) {
-  return (
-    <div className={`stat-card stat-card--${color} animate-fadeIn`}>
-      <div className="stat-card__header">
-        <span className="stat-card__title">{title}</span>
-        <div className="stat-card__icon">{icon}</div>
-      </div>
-      <div className="stat-card__value">{value}</div>
-      {showChange && change !== '—' && (
-        <div className={`stat-card__change stat-card__change--${trend}`}>
-          {trend === 'up' ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-          <span>{change} {title === 'Toplam Müşteri' ? `yeni (${value === '0' ? '' : ''}bu dönem)` : 'geçen döneme göre'}</span>
-        </div>
-      )}
-    </div>
-  )
-}
