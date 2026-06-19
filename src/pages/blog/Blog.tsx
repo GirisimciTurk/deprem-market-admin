@@ -11,6 +11,7 @@ import {
   Tag,
   Eye,
   Globe,
+  Sparkles,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
@@ -67,6 +68,8 @@ export default function Blog() {
   const [enTitle, setEnTitle] = useState('')
   const [enSummary, setEnSummary] = useState('')
   const [enContent, setEnContent] = useState('')
+  // AI ile yaz — konu girişi
+  const [aiTopic, setAiTopic] = useState('')
 
   // EN alanlarından translations objesi kur; hepsi boşsa null (TR'ye düşülür).
   const buildTranslations = () => {
@@ -97,6 +100,23 @@ export default function Blog() {
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
+  // AI ile blog taslağı üret (Gemini) → başlık/özet/içeriği doldurur.
+  const generateMutation = useMutation({
+    mutationFn: (topic: string) =>
+      api.post<{ post: { title: string; slug: string; summary: string; content: string; category: string } }>(
+        '/admin/blog/generate',
+        { topic, category }
+      ),
+    onSuccess: (r) => {
+      const p = r.post
+      if (p.title) setTitle(p.title)
+      if (p.summary) setSummary(p.summary)
+      if (p.content) setContent(p.content)
+      notify('AI taslağı oluşturuldu — gözden geçirip kaydedin.')
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
   const updateMutation = useMutation({
     mutationFn: ({ id, body }: { id: string; body: Partial<BlogPost> }) =>
       api.post(`/admin/blog/${id}`, body),
@@ -122,6 +142,7 @@ export default function Blog() {
   const handleOpenCreate = () => {
     setTitle(''); setCategory('Deprem Hazırlığı'); setSummary(''); setContent(''); setAuthor('Admin'); setStatus('draft')
     setEnTitle(''); setEnSummary(''); setEnContent('')
+    setAiTopic('')
     setIsCreateOpen(true)
   }
 
@@ -323,6 +344,39 @@ export default function Blog() {
       {isCreateOpen && (
         <Modal title="Yeni Blog Yazısı Ekle" onClose={() => setIsCreateOpen(false)} size="lg">
           <form onSubmit={handleCreatePost}>
+            {/* AI ile Yaz — konudan taslak üretir, alanları doldurur */}
+            <div style={{ background: 'var(--bg-tertiary)', border: '1px solid var(--border-primary)', borderRadius: 'var(--radius-md)', padding: '12px 14px', marginBottom: 18 }}>
+              <label className="field__label" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <Sparkles size={14} style={{ color: 'var(--accent-primary)' }} /> AI ile Yaz
+              </label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      if (aiTopic.trim().length >= 3) generateMutation.mutate(aiTopic.trim())
+                    }
+                  }}
+                  placeholder="Konu: ör. Deprem çantasında olması gerekenler"
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn btn--secondary"
+                  disabled={generateMutation.isPending || aiTopic.trim().length < 3}
+                  onClick={() => generateMutation.mutate(aiTopic.trim())}
+                >
+                  <Sparkles size={14} /> {generateMutation.isPending ? 'Yazılıyor...' : 'Üret'}
+                </button>
+              </div>
+              <p className="muted" style={{ fontSize: '0.74rem', marginTop: 6, marginBottom: 0 }}>
+                Seçili kategoriye uygun Türkçe bir taslak üretir; başlık, özet ve içeriği doldurur. Gözden geçirip kaydedin.
+              </p>
+            </div>
+
             <div className="field">
               <label className="field__label">Yazı Başlığı <span style={{ color: 'var(--accent-danger)' }}>*</span></label>
               <input
