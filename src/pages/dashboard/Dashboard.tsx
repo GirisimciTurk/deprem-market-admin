@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, lazy, Suspense } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import { formatMoney } from '../../lib/format'
@@ -28,7 +28,10 @@ import {
   pct,
   relTime,
 } from './dashboard-utils'
-import { StatCard, RevenueChart, StatusDonut } from './dashboard-widgets'
+import { StatCard } from './dashboard-widgets'
+// Grafikler ayrı chunk + lazy → recharts (~327KB) Dashboard'ın ilk render'ını bloklamaz.
+const RevenueChart = lazy(() => import('./dashboard-charts').then((m) => ({ default: m.RevenueChart })))
+const StatusDonut = lazy(() => import('./dashboard-charts').then((m) => ({ default: m.StatusDonut })))
 import './Dashboard.css'
 
 export default function Dashboard() {
@@ -314,11 +317,13 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Charts */}
-        <div className="dashboard__charts">
-          <RevenueChart data={m.chart} rangeLabel={RANGE_LABELS[range]} revChange={m.revChange} />
-          <StatusDonut data={m.statusShare} rangeLabel={RANGE_LABELS[range]} />
-        </div>
+        {/* Charts — recharts lazy yüklenir; kartlar/tablo önce render olur */}
+        <Suspense fallback={<div className="dashboard__charts"><div className="card dashboard__chart-card" style={{ minHeight: 320 }} /><div className="card dashboard__chart-card" style={{ minHeight: 320 }} /></div>}>
+          <div className="dashboard__charts">
+            <RevenueChart data={m.chart} rangeLabel={RANGE_LABELS[range]} revChange={m.revChange} />
+            <StatusDonut data={m.statusShare} rangeLabel={RANGE_LABELS[range]} />
+          </div>
+        </Suspense>
 
         {/* Action Center */}
         <div className="dashboard__action-grid animate-fadeIn">
