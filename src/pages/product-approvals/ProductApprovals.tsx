@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { ClipboardCheck, Package, Check, X, Store, Calendar, Barcode } from 'lucide-react'
 import Header from '../../components/layout/Header'
@@ -203,7 +204,7 @@ export default function ProductApprovals() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             {p.thumbnail ? (
                               <img
-                                src={p.thumbnail}
+                                src={toReachableImageUrl(p.thumbnail)}
                                 alt={p.title}
                                 style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', objectFit: 'cover', border: '1px solid var(--border-primary)' }}
                               />

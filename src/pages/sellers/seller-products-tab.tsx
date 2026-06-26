@@ -1,4 +1,5 @@
 import { Package } from 'lucide-react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import Badge from '../../components/ui/Badge'
 import type { StatusMeta } from '../../lib/statusLabels'
 import type { SellerProduct } from './seller-detail-types'
@@ -24,7 +25,7 @@ export function ProductsTab({ products }: { products: SellerProduct[] }) {
               <td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: 38, height: 38, borderRadius: 'var(--radius-sm)', overflow: 'hidden', background: 'var(--bg-tertiary)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {p.thumbnail ? <img src={p.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={16} className="muted" />}
+                    {p.thumbnail ? <img src={toReachableImageUrl(p.thumbnail)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Package size={16} className="muted" />}
                   </div>
                   <span style={{ fontWeight: 500, fontSize: '0.88rem' }}>{p.title}</span>
                 </div>

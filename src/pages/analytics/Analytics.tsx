@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import {
   AreaChart,
@@ -191,7 +192,7 @@ function ProductList({ title, icon, rows, empty, hint }: { title: string; icon: 
           {rows.map((r) => (
             <div key={r.product_id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 34, height: 34, borderRadius: 6, overflow: 'hidden', background: 'var(--bg-tertiary)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {r.thumbnail ? <img src={r.thumbnail} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Eye size={14} className="muted" />}
+                {r.thumbnail ? <img src={toReachableImageUrl(r.thumbnail)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <Eye size={14} className="muted" />}
               </div>
               <span style={{ fontSize: '0.85rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
               <span className="muted" style={{ fontSize: '0.8rem', fontWeight: 600 }}>{r.views.toLocaleString('tr-TR')}</span>

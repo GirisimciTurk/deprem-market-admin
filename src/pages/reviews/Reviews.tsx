@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
   MessageSquare,
@@ -220,7 +221,7 @@ export default function Reviews() {
             ✕
           </button>
           <img
-            src={lightbox}
+            src={toReachableImageUrl(lightbox)}
             alt="Yorum fotoğrafı"
             onClick={(e) => e.stopPropagation()}
             style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 'var(--radius-md)' }}
@@ -338,7 +339,7 @@ export default function Reviews() {
                               }}
                             >
                               <img
-                                src={img}
+                                src={toReachableImageUrl(img)}
                                 alt={`Yorum fotoğrafı ${idx + 1}`}
                                 loading="lazy"
                                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}

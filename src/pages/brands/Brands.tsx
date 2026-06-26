@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Tag, Search, Plus, Pencil, Trash2, Check } from 'lucide-react'
 import Header from '../../components/layout/Header'
@@ -114,7 +115,7 @@ export default function Brands() {
                   <tr key={b.id}>
                     <td style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       {b.logo ? (
-                        <img src={b.logo} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />
+                        <img src={toReachableImageUrl(b.logo)} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />
                       ) : (
                         <span style={{ width: 28, height: 28, borderRadius: 6, background: 'var(--bg-tertiary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}><Tag size={14} /></span>
                       )}

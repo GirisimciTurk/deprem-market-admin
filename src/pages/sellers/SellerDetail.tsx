@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -113,7 +114,7 @@ export default function SellerDetail() {
               width: 44, height: 44, borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)',
               display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
             }}>
-              {s.logo ? <img src={s.logo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {s.logo ? <img src={toReachableImageUrl(s.logo)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : s.is_house ? <Home size={20} className="muted" /> : <Store size={20} className="muted" />}
             </div>
             <div>

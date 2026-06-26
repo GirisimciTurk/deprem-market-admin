@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Package, Search, AlertTriangle, Store } from 'lucide-react'
@@ -142,7 +143,7 @@ export default function Products() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                           {p.thumbnail ? (
                             <img
-                              src={p.thumbnail}
+                              src={toReachableImageUrl(p.thumbnail)}
                               alt={p.title}
                               style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', objectFit: 'cover', border: '1px solid var(--border-primary)' }}
                             />

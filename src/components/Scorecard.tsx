@@ -1,4 +1,5 @@
 import { Truck, Star, RotateCcw, MessageCircleQuestion, XCircle, Package } from 'lucide-react'
+import { toReachableImageUrl } from '../lib/image-url'
 import { formatMoney } from '../lib/format'
 import {
   gradeColor,
@@ -203,7 +204,7 @@ export function AnalyticsView({ an }: { an: SellerAnalytics }) {
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                       {p.thumbnail ? (
-                        <img src={p.thumbnail} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover' }} />
+                        <img src={toReachableImageUrl(p.thumbnail)} alt="" style={{ width: 34, height: 34, borderRadius: 6, objectFit: 'cover' }} />
                       ) : (
                         <div style={{ width: 34, height: 34, borderRadius: 6, background: 'var(--bg-hover)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-tertiary)' }}>
                           <Package size={15} />

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Save, Upload, Layers, Package, X } from 'lucide-react'
@@ -316,7 +317,7 @@ export default function ProductCreate() {
                 {gallery.map((url, idx) => (
                   <div key={url} style={{ position: 'relative' }}>
                     <img
-                      src={url}
+                      src={toReachableImageUrl(url)}
                       alt=""
                       style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: idx === 0 ? '2px solid var(--accent-primary)' : '1px solid var(--border-primary)' }}
                     />

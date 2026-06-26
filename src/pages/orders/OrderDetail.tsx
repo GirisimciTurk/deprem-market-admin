@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { XCircle, RotateCcw } from 'lucide-react'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
@@ -119,7 +120,7 @@ export default function OrderDetail({ order, busy, onClose, onCancel, onRefund }
             <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {item.thumbnail ? (
                 <img
-                  src={item.thumbnail}
+                  src={toReachableImageUrl(item.thumbnail)}
                   alt={item.title}
                   style={{ width: 40, height: 40, borderRadius: 'var(--radius-sm)', objectFit: 'cover', border: '1px solid var(--border-primary)' }}
                 />

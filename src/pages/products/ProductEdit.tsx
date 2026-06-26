@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { toReachableImageUrl } from '../../lib/image-url'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useParams, useNavigate } from 'react-router-dom'
 import {
@@ -1030,7 +1031,7 @@ export default function ProductEdit() {
                       {galleryImages.map((url, idx) => (
                         <div key={idx} className="card" style={{ padding: 8, display: 'flex', flexDirection: 'column', gap: 8, position: 'relative' }}>
                           <img
-                            src={url}
+                            src={toReachableImageUrl(url)}
                             alt="Gallery preview"
                             style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }}
                           />
@@ -1435,7 +1436,7 @@ export default function ProductEdit() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
                       {showcaseHighlights.map((hl, idx) => (
                         <div key={idx} className="card" style={{ padding: 12, display: 'flex', gap: 12, background: 'var(--bg-tertiary)' }}>
-                          <img src={hl.image} alt={hl.title} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
+                          <img src={toReachableImageUrl(hl.image)} alt={hl.title} style={{ width: 80, height: 60, objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
                           <div style={{ flex: 1 }}>
                             <strong>{hl.title}</strong>
                             <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: 2 }}>{hl.desc}</p>
@@ -1474,7 +1475,7 @@ export default function ProductEdit() {
                 </h4>
                 {generalForm.thumbnail ? (
                   <img
-                    src={generalForm.thumbnail}
+                    src={toReachableImageUrl(generalForm.thumbnail)}
                     alt={generalForm.title}
                     style={{ width: '100%', height: 160, objectFit: 'cover', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}
                   />
