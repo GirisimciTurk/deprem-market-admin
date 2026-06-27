@@ -77,6 +77,11 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   lisans: 'Lisans / Ruhsat',
   diger: 'Diğer Belge',
 }
+const MEMBERSHIP_LABELS: Record<string, string> = {
+  none: 'Standart (ücretsiz liste)',
+  basic: 'Temel Üyelik',
+  premium: 'Üst Üyelik (öne çıkar)',
+}
 
 type LeadStatus = 'new' | 'contacted' | 'approved' | 'archived'
 
@@ -114,6 +119,7 @@ interface ExpertLead {
   slug?: string | null
   is_published?: boolean
   published_at?: string | null
+  membership_tier?: 'none' | 'basic' | 'premium'
 }
 
 function statusMeta(status: LeadStatus): StatusMeta {
@@ -141,6 +147,7 @@ interface ProfileDraft {
   show_email: boolean
   slug: string
   documents: ExpertDoc[]
+  membership_tier: 'none' | 'basic' | 'premium'
 }
 
 function toDraft(l: ExpertLead): ProfileDraft {
@@ -152,6 +159,7 @@ function toDraft(l: ExpertLead): ProfileDraft {
     show_email: l.show_email ?? false,
     slug: l.slug ?? '',
     documents: Array.isArray(l.documents) ? l.documents : [],
+    membership_tier: l.membership_tier ?? 'none',
   }
 }
 
@@ -257,6 +265,7 @@ export default function ExpertLeads() {
       show_phone: profile.show_phone,
       show_email: profile.show_email,
       documents: profile.documents,
+      membership_tier: profile.membership_tier,
       ...(profile.slug ? { slug: profile.slug } : {}),
     })
   }
@@ -274,6 +283,7 @@ export default function ExpertLeads() {
             show_phone: profile.show_phone,
             show_email: profile.show_email,
             documents: profile.documents,
+            membership_tier: profile.membership_tier,
             ...(profile.slug ? { slug: profile.slug } : {}),
           }
         : {}),
@@ -483,6 +493,11 @@ export default function ExpertLeads() {
                             {lead.is_published && (
                               <span className="badge badge--success" style={{ fontSize: '0.66rem' }}>
                                 Yayında
+                              </span>
+                            )}
+                            {lead.membership_tier === 'premium' && (
+                              <span className="badge badge--warning" style={{ fontSize: '0.66rem' }}>
+                                ★ Üst
                               </span>
                             )}
                           </div>
@@ -711,6 +726,25 @@ export default function ExpertLeads() {
                     placeholder="yayınlanınca otomatik üretilir"
                     style={{ width: '100%' }}
                   />
+                </div>
+                <div>
+                  <label className="muted" style={{ fontSize: '0.78rem', display: 'block', marginBottom: '4px' }}>
+                    Üyelik Paketi
+                  </label>
+                  <select
+                    value={profile.membership_tier}
+                    onChange={(e) =>
+                      setProfile({
+                        ...profile,
+                        membership_tier: e.target.value as 'none' | 'basic' | 'premium',
+                      })
+                    }
+                    style={{ width: '100%' }}
+                  >
+                    {Object.entries(MEMBERSHIP_LABELS).map(([k, l]) => (
+                      <option key={k} value={k}>{l}</option>
+                    ))}
+                  </select>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
