@@ -116,6 +116,7 @@ interface ExpertLead {
   experience_years: number | null
   imo_member: boolean
   service_areas: string
+  service_regions?: { city: string; district?: string }[]
   budget_tier: string
   message: string
   notes: string
@@ -619,8 +620,13 @@ export default function ExpertLeads() {
                 <div style={{ marginTop: '4px', fontSize: '0.875rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <MapPin size={12} /> {[selected.city, selected.district].filter(Boolean).join(' / ') || '—'}
                 </div>
+                {(selected.service_regions?.length ?? 0) > 0 && (
+                  <div className="muted" style={{ fontSize: '0.78rem', marginTop: '2px' }}>
+                    Ek bölgeler: {selected.service_regions!.map((r) => [r.city, r.district].filter(Boolean).join('/')).join(', ')}
+                  </div>
+                )}
                 {selected.service_areas && (
-                  <div className="muted" style={{ fontSize: '0.78rem', marginTop: '2px' }}>Ek bölge: {selected.service_areas}</div>
+                  <div className="muted" style={{ fontSize: '0.78rem', marginTop: '2px' }}>Not: {selected.service_areas}</div>
                 )}
               </div>
               <div>
