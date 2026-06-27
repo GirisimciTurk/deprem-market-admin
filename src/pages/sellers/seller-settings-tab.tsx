@@ -31,6 +31,7 @@ interface SettingsForm {
   default_carrier: '' | CarrierCode
   commission_rate: number
   status: SellerStatus
+  is_featured: boolean
 }
 
 export function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; hasLogin: boolean; onSaved: () => void }) {
@@ -50,6 +51,7 @@ export function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; has
     default_carrier: (seller.default_carrier ?? '') as '' | CarrierCode,
     commission_rate: seller.commission_rate,
     status: seller.status,
+    is_featured: seller.is_featured ?? false,
   })
 
   const save = useMutation({
@@ -68,6 +70,7 @@ export function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; has
         default_carrier: LOCK_PLATFORM_CARRIER ? undefined : (form.default_carrier || null),
         commission_rate: Number(form.commission_rate),
         status: form.status,
+        is_featured: form.is_featured,
       }),
     onSuccess: () => { notify('Satıcı bilgileri kaydedildi.'); onSaved() },
     onError: (e: Error) => notify(e.message, 'error'),
@@ -102,6 +105,16 @@ export function SettingsTab({ seller, hasLogin, onSaved }: { seller: Seller; has
               <option value="active">Aktif</option>
               <option value="suspended">Askıda</option>
             </select>
+          </Field>
+          <Field label="Mağazada Öne Çıkar">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.875rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={form.is_featured}
+                onChange={(e) => set('is_featured', e.target.checked)}
+              />
+              Ana sayfa "Öne Çıkan Satıcılar" vitrininde göster
+            </label>
           </Field>
         </Grid>
         <Field label="Mağaza Açıklaması">

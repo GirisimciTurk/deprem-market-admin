@@ -19,6 +19,7 @@ export interface Seller {
   account_holder: string | null
   default_carrier: CarrierCode | null
   is_house: boolean
+  is_featured?: boolean
   rating_sum: number
   rating_count: number
   created_at: string
