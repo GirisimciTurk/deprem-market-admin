@@ -13,6 +13,10 @@ import {
   BadgeCheck,
   Wallet,
   Briefcase,
+  Upload,
+  ExternalLink,
+  Globe,
+  MessageCircle,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
@@ -23,9 +27,11 @@ import { ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
 import { useDebounce } from '../../lib/useDebounce'
 import { api } from '../../lib/api'
+import { API_BASE, getToken } from '../../lib/auth'
 import type { StatusMeta } from '../../lib/statusLabels'
 
 const LIMIT = 20
+const STOREFRONT_URL = import.meta.env.VITE_STOREFRONT_URL || 'http://localhost:8000'
 
 // Backend src/lib/expert-config.ts ile eş tutulmalı (TR etiketler).
 // Mühendis (engineer) uzmanlıkları
@@ -64,8 +70,21 @@ const BUDGET_LABELS: Record<string, string> = {
   '500_1000': 'Aylık 500 – 1.000 ₺',
   '1000_plus': 'Aylık 1.000 ₺ +',
 }
+const DOC_TYPE_LABELS: Record<string, string> = {
+  diploma: 'Diploma',
+  oda: 'Oda Kaydı (İMO)',
+  yetki: 'Yetki Belgesi',
+  lisans: 'Lisans / Ruhsat',
+  diger: 'Diğer Belge',
+}
 
 type LeadStatus = 'new' | 'contacted' | 'approved' | 'archived'
+
+interface ExpertDoc {
+  type: string
+  url: string
+  name?: string
+}
 
 interface ExpertLead {
   id: string
@@ -85,6 +104,16 @@ interface ExpertLead {
   notes: string
   status: LeadStatus
   created_at: string
+  // Dizin profili
+  about?: string
+  photo_url?: string
+  whatsapp?: string
+  show_phone?: boolean
+  show_email?: boolean
+  documents?: ExpertDoc[] | null
+  slug?: string | null
+  is_published?: boolean
+  published_at?: string | null
 }
 
 function statusMeta(status: LeadStatus): StatusMeta {
@@ -104,6 +133,28 @@ function specLabel(key: string): string {
   return SPEC_LABELS[key] ?? key
 }
 
+interface ProfileDraft {
+  about: string
+  photo_url: string
+  whatsapp: string
+  show_phone: boolean
+  show_email: boolean
+  slug: string
+  documents: ExpertDoc[]
+}
+
+function toDraft(l: ExpertLead): ProfileDraft {
+  return {
+    about: l.about ?? '',
+    photo_url: l.photo_url ?? '',
+    whatsapp: l.whatsapp ?? '',
+    show_phone: l.show_phone ?? true,
+    show_email: l.show_email ?? false,
+    slug: l.slug ?? '',
+    documents: Array.isArray(l.documents) ? l.documents : [],
+  }
+}
+
 export default function ExpertLeads() {
   const { notify } = useToast()
   const qc = useQueryClient()
@@ -112,16 +163,21 @@ export default function ExpertLeads() {
   const [statusFilter, setStatusFilter] = useState<string>('')
   const [providerFilter, setProviderFilter] = useState<string>('')
   const [specFilter, setSpecFilter] = useState<string>('')
+  const [publishedFilter, setPublishedFilter] = useState<string>('')
   const [selected, setSelected] = useState<ExpertLead | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
+  const [profile, setProfile] = useState<ProfileDraft | null>(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadingDoc, setUploadingDoc] = useState(false)
   const debounced = useDebounce(search)
 
   useEffect(() => {
     setNoteDraft(selected?.notes ?? '')
+    setProfile(selected ? toDraft(selected) : null)
   }, [selected])
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['expert-leads', offset, debounced, statusFilter, providerFilter, specFilter],
+    queryKey: ['expert-leads', offset, debounced, statusFilter, providerFilter, specFilter, publishedFilter],
     queryFn: () =>
       api.get<{ leads: ExpertLead[]; count: number }>('/admin/expert-leads', {
         limit: LIMIT,
@@ -133,7 +189,9 @@ export default function ExpertLeads() {
       }),
     placeholderData: keepPreviousData,
   })
-  const leads = data?.leads ?? []
+  let leads = data?.leads ?? []
+  if (publishedFilter === 'published') leads = leads.filter((l) => l.is_published)
+  else if (publishedFilter === 'unpublished') leads = leads.filter((l) => !l.is_published)
 
   const updateMutation = useMutation({
     mutationFn: ({ id, status, notes }: { id: string; status?: LeadStatus; notes?: string }) =>
@@ -148,6 +206,24 @@ export default function ExpertLeads() {
       notify(vars.status ? (msg[vars.status] ?? 'Durum güncellendi.') : 'Not kaydedildi.')
       qc.invalidateQueries({ queryKey: ['expert-leads'] })
       if (vars.status) setSelected(null)
+    },
+    onError: (e: Error) => notify(e.message, 'error'),
+  })
+
+  // Profil kaydet / yayınla — döndürülen güncel kaydı seçili tut (slug görünür olsun).
+  const profileMutation = useMutation({
+    mutationFn: (payload: Record<string, unknown>) =>
+      api.post<{ lead: ExpertLead }>(`/admin/expert-leads/${selected!.id}`, payload),
+    onSuccess: (r, vars) => {
+      if (r?.lead) setSelected(r.lead)
+      notify(
+        'is_published' in vars
+          ? vars.is_published
+            ? 'Profil yayınlandı — dizinde görünür.'
+            : 'Profil yayından kaldırıldı.'
+          : 'Profil kaydedildi.'
+      )
+      qc.invalidateQueries({ queryKey: ['expert-leads'] })
     },
     onError: (e: Error) => notify(e.message, 'error'),
   })
@@ -172,11 +248,112 @@ export default function ExpertLeads() {
     }
   }
 
+  const saveProfile = () => {
+    if (!profile) return
+    profileMutation.mutate({
+      about: profile.about,
+      photo_url: profile.photo_url,
+      whatsapp: profile.whatsapp,
+      show_phone: profile.show_phone,
+      show_email: profile.show_email,
+      documents: profile.documents,
+      ...(profile.slug ? { slug: profile.slug } : {}),
+    })
+  }
+  const togglePublish = () => {
+    if (!selected || !profile) return
+    const next = !selected.is_published
+    profileMutation.mutate({
+      is_published: next,
+      // Yayınlarken güncel profil alanlarını da gönder (kaydetmeyi unutmaya karşı).
+      ...(next
+        ? {
+            about: profile.about,
+            photo_url: profile.photo_url,
+            whatsapp: profile.whatsapp,
+            show_phone: profile.show_phone,
+            show_email: profile.show_email,
+            documents: profile.documents,
+            ...(profile.slug ? { slug: profile.slug } : {}),
+          }
+        : {}),
+    })
+  }
+
+  // /admin/uploads (multipart) — fotoğraf & belge yükleme (ProductEdit deseni).
+  const uploadFiles = async (files: FileList): Promise<{ url: string }[]> => {
+    const token = getToken()
+    const fd = new FormData()
+    for (let i = 0; i < files.length; i++) fd.append('files', files[i])
+    const res = await fetch(`${API_BASE}/admin/uploads`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: fd,
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      throw new Error(err?.message || `Yükleme başarısız (HTTP ${res.status})`)
+    }
+    const data = (await res.json()) as { files?: { url: string }[] }
+    return data.files ?? []
+  }
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files?.length || !profile) return
+    setUploadingPhoto(true)
+    try {
+      const out = await uploadFiles(files)
+      if (out[0]?.url) {
+        setProfile({ ...profile, photo_url: out[0].url })
+        notify('Fotoğraf yüklendi. Kaydetmeyi unutmayın.')
+      }
+    } catch (err: any) {
+      notify(err.message || 'Fotoğraf yüklenemedi.', 'error')
+    } finally {
+      setUploadingPhoto(false)
+      e.target.value = ''
+    }
+  }
+
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files?.length || !profile) return
+    setUploadingDoc(true)
+    try {
+      const out = await uploadFiles(files)
+      const newDocs: ExpertDoc[] = out
+        .filter((f) => f.url)
+        .map((f, i) => ({ type: 'diger', url: f.url, name: files[i]?.name || 'Belge' }))
+      if (newDocs.length) {
+        setProfile({ ...profile, documents: [...profile.documents, ...newDocs] })
+        notify(`${newDocs.length} belge yüklendi. Kaydetmeyi unutmayın.`)
+      }
+    } catch (err: any) {
+      notify(err.message || 'Belge yüklenemedi.', 'error')
+    } finally {
+      setUploadingDoc(false)
+      e.target.value = ''
+    }
+  }
+
+  const setDocType = (idx: number, type: string) => {
+    if (!profile) return
+    setProfile({
+      ...profile,
+      documents: profile.documents.map((d, i) => (i === idx ? { ...d, type } : d)),
+    })
+  }
+  const removeDoc = (idx: number) => {
+    if (!profile) return
+    setProfile({ ...profile, documents: profile.documents.filter((_, i) => i !== idx) })
+  }
+
   return (
     <>
       <Header
         title="Uzman & Uygulayıcı Ön Kayıtları"
-        subtitle="İnşaat mühendisi (tespit/proje) ve uygulayıcı (inşaat/güçlendirme) dizini ön-kayıtlarını inceleyin"
+        subtitle="İnşaat mühendisi (tespit/proje) ve uygulayıcı (inşaat/güçlendirme) dizini ön-kayıtlarını inceleyin, doğrulayın ve yayınlayın"
       />
 
       <div style={{ padding: '24px' }}>
@@ -229,6 +406,18 @@ export default function ExpertLeads() {
             </optgroup>
           </select>
           <select
+            value={publishedFilter}
+            onChange={(e) => {
+              setPublishedFilter(e.target.value)
+              setOffset(0)
+            }}
+            style={{ width: 'auto', minWidth: '150px' }}
+          >
+            <option value="">Tüm Yayın Durumu</option>
+            <option value="published">Yayında</option>
+            <option value="unpublished">Yayında Değil</option>
+          </select>
+          <select
             value={statusFilter}
             onChange={(e) => {
               setStatusFilter(e.target.value)
@@ -253,7 +442,7 @@ export default function ExpertLeads() {
             icon={<UserCheck size={26} />}
             title="Ön kayıt bulunamadı"
             description={
-              search || statusFilter || specFilter
+              search || statusFilter || specFilter || publishedFilter
                 ? 'Filtreye uygun ön kayıt yok.'
                 : 'Henüz uzman ön kaydı bulunmamaktadır. /uzman-ol sayfası üzerinden gelir.'
             }
@@ -284,13 +473,18 @@ export default function ExpertLeads() {
                               <BadgeCheck size={14} style={{ color: 'var(--accent-success)' }} aria-label="İMO üyesi" />
                             )}
                           </div>
-                          <div style={{ marginTop: '3px' }}>
+                          <div style={{ marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                             <span
                               className={`badge ${lead.provider_type === 'implementer' ? 'badge--warning' : 'badge--info'}`}
                               style={{ fontSize: '0.66rem' }}
                             >
                               {PROVIDER_LABELS[lead.provider_type] ?? 'Mühendis'}
                             </span>
+                            {lead.is_published && (
+                              <span className="badge badge--success" style={{ fontSize: '0.66rem' }}>
+                                Yayında
+                              </span>
+                            )}
                           </div>
                           <div className="muted" style={{ fontSize: '0.78rem', marginTop: '2px' }}>
                             {lead.title || '—'}
@@ -353,7 +547,7 @@ export default function ExpertLeads() {
       </div>
 
       {/* Detail Modal */}
-      {selected && (
+      {selected && profile && (
         <Modal title="Uzman Ön Kayıt Detayı" onClose={() => setSelected(null)} size="lg">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
             <div
@@ -369,7 +563,7 @@ export default function ExpertLeads() {
             >
               <div>
                 <span className="muted" style={{ fontSize: '0.78rem', display: 'block' }}>Ad Soyad & Unvan</span>
-                <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', flexWrap: 'wrap' }}>
                   {selected.full_name}
                   {selected.imo_member && <BadgeCheck size={14} style={{ color: 'var(--accent-success)' }} />}
                   <span
@@ -421,11 +615,182 @@ export default function ExpertLeads() {
 
             <div>
               <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <FileText size={16} className="muted" /> Beklenti / İhtiyaç (mühendisin fikri)
+                <FileText size={16} className="muted" /> Beklenti / İhtiyaç (başvuru notu)
               </h4>
               <p style={{ background: 'var(--bg-secondary)', padding: '16px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)', fontSize: '0.9rem', lineHeight: '1.6', color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
                 {selected.message || '—'}
               </p>
+            </div>
+
+            {/* --- DİZİN PROFİLİ EDİTÖRÜ --- */}
+            <div
+              style={{
+                border: '1px solid var(--border-primary)',
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+                display: 'grid',
+                gap: '16px',
+                background: 'var(--bg-primary)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
+                <h4 style={{ fontSize: '0.95rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Globe size={16} className="muted" /> Herkese Açık Dizin Profili
+                </h4>
+                {selected.is_published && selected.slug && (
+                  <a
+                    href={`${STOREFRONT_URL}/tr/uzmanlar/${selected.slug}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn--secondary btn--sm"
+                  >
+                    <ExternalLink size={13} /> Profili Gör
+                  </a>
+                )}
+              </div>
+
+              {/* Foto + about */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '16px', alignItems: 'start' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div
+                    style={{
+                      width: 88, height: 88, borderRadius: 'var(--radius-md)',
+                      background: 'var(--bg-tertiary)', overflow: 'hidden',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: '1px solid var(--border-primary)', marginBottom: '8px',
+                    }}
+                  >
+                    {profile.photo_url ? (
+                      <img src={profile.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <UserCheck size={28} className="muted" />
+                    )}
+                  </div>
+                  <label className="btn btn--secondary btn--sm" style={{ cursor: 'pointer' }}>
+                    <Upload size={13} /> {uploadingPhoto ? '...' : 'Foto'}
+                    <input type="file" accept="image/*" hidden disabled={uploadingPhoto} onChange={handlePhotoUpload} />
+                  </label>
+                </div>
+                <div>
+                  <label className="muted" style={{ fontSize: '0.78rem', display: 'block', marginBottom: '4px' }}>
+                    Hakkında (profilde görünür)
+                  </label>
+                  <textarea
+                    value={profile.about}
+                    onChange={(e) => setProfile({ ...profile, about: e.target.value })}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="Kısa biyografi, uzmanlık özeti, öne çıkan projeler..."
+                    style={{ width: '100%', resize: 'vertical' }}
+                  />
+                </div>
+              </div>
+
+              {/* İletişim tercihleri + slug */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label className="muted" style={{ fontSize: '0.78rem', display: 'block', marginBottom: '4px' }}>
+                    WhatsApp (ülke kodlu, opsiyonel)
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.whatsapp}
+                    onChange={(e) => setProfile({ ...profile, whatsapp: e.target.value })}
+                    placeholder="905321112233"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <label className="muted" style={{ fontSize: '0.78rem', display: 'block', marginBottom: '4px' }}>
+                    Profil URL (slug)
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.slug}
+                    onChange={(e) => setProfile({ ...profile, slug: e.target.value })}
+                    placeholder="yayınlanınca otomatik üretilir"
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={profile.show_phone}
+                      onChange={(e) => setProfile({ ...profile, show_phone: e.target.checked })}
+                    />
+                    Telefonu dizinde göster
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={profile.show_email}
+                      onChange={(e) => setProfile({ ...profile, show_email: e.target.checked })}
+                    />
+                    E-postayı dizinde göster
+                  </label>
+                </div>
+              </div>
+
+              {/* Belgeler */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FileText size={14} className="muted" /> Doğrulama Belgeleri ({profile.documents.length})
+                  </span>
+                  <label className="btn btn--secondary btn--sm" style={{ cursor: 'pointer' }}>
+                    <Upload size={13} /> {uploadingDoc ? '...' : 'Belge Ekle'}
+                    <input type="file" accept="image/*,application/pdf" multiple hidden disabled={uploadingDoc} onChange={handleDocUpload} />
+                  </label>
+                </div>
+                {profile.documents.length === 0 ? (
+                  <p className="muted" style={{ fontSize: '0.8rem' }}>Henüz belge yüklenmemiş. Başvuru sahibi yüklemiş olabilir ya da buradan ekleyebilirsiniz.</p>
+                ) : (
+                  <div style={{ display: 'grid', gap: '6px' }}>
+                    {profile.documents.map((doc, idx) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-secondary)', padding: '8px 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-primary)' }}>
+                        <a href={doc.url} target="_blank" rel="noreferrer" style={{ flex: 1, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <FileText size={13} /> {doc.name || doc.url.split('/').pop()}
+                        </a>
+                        <select
+                          value={doc.type}
+                          onChange={(e) => setDocType(idx, e.target.value)}
+                          style={{ width: 'auto', minWidth: 130, fontSize: '0.78rem' }}
+                        >
+                          {Object.entries(DOC_TYPE_LABELS).map(([k, l]) => (
+                            <option key={k} value={k}>{l}</option>
+                          ))}
+                        </select>
+                        <button className="btn btn--secondary btn--icon btn--sm" title="Kaldır" onClick={() => removeDoc(idx)}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                <button
+                  className="btn btn--secondary"
+                  onClick={saveProfile}
+                  disabled={profileMutation.isPending}
+                >
+                  Profili Kaydet
+                </button>
+                <button
+                  className={selected.is_published ? 'btn btn--secondary' : 'btn btn--primary'}
+                  onClick={togglePublish}
+                  disabled={profileMutation.isPending}
+                  title={selected.is_published ? 'Dizinden kaldır' : 'Doğruladıysanız dizinde yayınlayın'}
+                >
+                  {selected.is_published ? (
+                    <>Yayından Kaldır</>
+                  ) : (
+                    <><BadgeCheck size={14} /> Doğrula & Yayınla</>
+                  )}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -448,10 +813,15 @@ export default function ExpertLeads() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', borderTop: '1px solid var(--border-primary)', paddingTop: '16px' }}>
-              <div>
-                <span className="muted" style={{ marginRight: '8px' }}>Durum:</span>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', borderTop: '1px solid var(--border-primary)', paddingTop: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span className="muted">Durum:</span>
                 <Badge status={statusMeta(selected.status)} />
+                {selected.is_published && (
+                  <span className="badge badge--success" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                    <MessageCircle size={11} /> Dizinde Yayında
+                  </span>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
