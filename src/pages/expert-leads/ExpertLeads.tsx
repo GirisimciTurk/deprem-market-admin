@@ -101,6 +101,7 @@ interface ExpertLead {
   city: string
   district: string
   specializations: string[]
+  verified_specializations?: string[]
   experience_years: number | null
   imo_member: boolean
   service_areas: string
@@ -148,6 +149,7 @@ interface ProfileDraft {
   slug: string
   documents: ExpertDoc[]
   membership_tier: 'none' | 'basic' | 'premium'
+  verified_specializations: string[]
 }
 
 function toDraft(l: ExpertLead): ProfileDraft {
@@ -160,6 +162,9 @@ function toDraft(l: ExpertLead): ProfileDraft {
     slug: l.slug ?? '',
     documents: Array.isArray(l.documents) ? l.documents : [],
     membership_tier: l.membership_tier ?? 'none',
+    verified_specializations: Array.isArray(l.verified_specializations)
+      ? l.verified_specializations
+      : (l.specializations ?? []),
   }
 }
 
@@ -266,6 +271,7 @@ export default function ExpertLeads() {
       show_email: profile.show_email,
       documents: profile.documents,
       membership_tier: profile.membership_tier,
+      verified_specializations: profile.verified_specializations,
       ...(profile.slug ? { slug: profile.slug } : {}),
     })
   }
@@ -620,12 +626,37 @@ export default function ExpertLeads() {
             </div>
 
             <div>
-              <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '8px' }}>Uzmanlık Alanları</h4>
+              <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '4px' }}>Uzmanlık Alanları — Bazlı Doğrulama</h4>
+              <p className="muted" style={{ fontSize: '0.78rem', marginBottom: '8px' }}>
+                Her uzmanlığı AYRI doğrulayın. Yalnız ✓ işaretli (doğrulanmış) uzmanlıklar dizinde filtrelenir ve profilde "doğrulanmış" görünür.
+              </p>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {(selected.specializations ?? []).map((s) => (
-                  <span key={s} className="badge badge--info">{specLabel(s)}</span>
-                ))}
+                {(selected.specializations ?? []).map((s) => {
+                  const ok = profile.verified_specializations.includes(s)
+                  return (
+                    <button
+                      type="button"
+                      key={s}
+                      onClick={() =>
+                        setProfile({
+                          ...profile,
+                          verified_specializations: ok
+                            ? profile.verified_specializations.filter((k) => k !== s)
+                            : [...profile.verified_specializations, s],
+                        })
+                      }
+                      className={`badge ${ok ? 'badge--success' : 'badge--neutral'}`}
+                      style={{ cursor: 'pointer', border: 'none' }}
+                      title={ok ? 'Doğrulandı — kaldırmak için tıkla' : 'Doğrulanmadı — doğrulamak için tıkla'}
+                    >
+                      {ok ? '✓ ' : '○ '}{specLabel(s)}
+                    </button>
+                  )
+                })}
               </div>
+              <p className="muted" style={{ fontSize: '0.72rem', marginTop: '6px' }}>
+                Doğrulama "Profili Kaydet" veya "Yayınla" ile kaydedilir.
+              </p>
             </div>
 
             <div>
