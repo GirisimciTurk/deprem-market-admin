@@ -82,6 +82,17 @@ const MEMBERSHIP_LABELS: Record<string, string> = {
   basic: 'Temel Üyelik',
   premium: 'Üst Üyelik (öne çıkar)',
 }
+// Belge–uzmanlık eşleşmesi (backend src/lib/expert-config.ts ile eş tutulmalı).
+const SPEC_REQUIRED_DOCS: Record<string, string[]> = {
+  risk_tespit: ['diploma', 'oda'], guclendirme: ['diploma', 'oda'], statik_proje: ['diploma', 'oda'],
+  zemin_etut: ['diploma', 'oda'], yapi_denetim: ['diploma', 'oda', 'lisans'], kentsel_donusum: ['diploma', 'oda'],
+  performans_analizi: ['diploma', 'oda'], guclendirme_uygulama: ['yetki'], karbon_fiber: ['yetki'],
+  celik_guclendirme: ['yetki'], temel_perde: ['yetki'], insaat_yapim: ['yetki', 'lisans'],
+  zemin_iyilestirme: ['yetki'], yikim_hafriyat: ['yetki', 'lisans'], tadilat_onarim: ['yetki'],
+}
+function requiredDocsLabel(specKey: string): string {
+  return (SPEC_REQUIRED_DOCS[specKey] ?? []).map((d) => DOC_TYPE_LABELS[d] ?? d).join(', ')
+}
 
 type LeadStatus = 'new' | 'contacted' | 'approved' | 'archived'
 
@@ -653,6 +664,14 @@ export default function ExpertLeads() {
                     </button>
                   )
                 })}
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '0.74rem', color: 'var(--text-tertiary)' }}>
+                <strong style={{ color: 'var(--text-secondary)' }}>Gerekli belgeler (uzmanlık bazında):</strong>
+                <ul style={{ margin: '4px 0 0', paddingLeft: '16px' }}>
+                  {(selected.specializations ?? []).map((s) => (
+                    <li key={s}>{specLabel(s)} → {requiredDocsLabel(s) || 'belirtilmedi'}</li>
+                  ))}
+                </ul>
               </div>
               <p className="muted" style={{ fontSize: '0.72rem', marginTop: '6px' }}>
                 Doğrulama "Profili Kaydet" veya "Yayınla" ile kaydedilir.
