@@ -73,7 +73,7 @@ const BUDGET_LABELS: Record<string, string> = {
 const DOC_TYPE_LABELS: Record<string, string> = {
   diploma: 'Diploma',
   oda: 'Oda Kaydı (İMO)',
-  yetki: 'Yetki Belgesi',
+  yetki: 'Yetki Belgesi / Vergi Mükellefiyeti',
   lisans: 'Lisans / Ruhsat',
   diger: 'Diğer Belge',
 }
@@ -82,6 +82,8 @@ const MEMBERSHIP_LABELS: Record<string, string> = {
   basic: 'Temel Üyelik',
   premium: 'Üst Üyelik (öne çıkar)',
 }
+// Paket başına izin verilen EK hizmet bölgesi (backend MEMBERSHIP_REGION_LIMITS ile eş).
+const REGION_LIMITS: Record<string, number> = { none: 1, basic: 3, premium: 10 }
 // Belge–uzmanlık eşleşmesi (backend src/lib/expert-config.ts ile eş tutulmalı).
 const SPEC_REQUIRED_DOCS: Record<string, string[]> = {
   risk_tespit: ['diploma', 'oda'], guclendirme: ['diploma', 'oda'], statik_proje: ['diploma', 'oda'],
@@ -162,6 +164,7 @@ interface ProfileDraft {
   documents: ExpertDoc[]
   membership_tier: 'none' | 'basic' | 'premium'
   verified_specializations: string[]
+  service_regions: { city: string; district?: string }[]
 }
 
 function toDraft(l: ExpertLead): ProfileDraft {
@@ -177,6 +180,7 @@ function toDraft(l: ExpertLead): ProfileDraft {
     verified_specializations: Array.isArray(l.verified_specializations)
       ? l.verified_specializations
       : (l.specializations ?? []),
+    service_regions: Array.isArray(l.service_regions) ? l.service_regions.map((r) => ({ city: r.city, district: r.district })) : [],
   }
 }
 
@@ -284,6 +288,7 @@ export default function ExpertLeads() {
       documents: profile.documents,
       membership_tier: profile.membership_tier,
       verified_specializations: profile.verified_specializations,
+      service_regions: profile.service_regions.filter((r) => r.city?.trim()),
       ...(profile.slug ? { slug: profile.slug } : {}),
     })
   }
@@ -820,6 +825,60 @@ export default function ExpertLeads() {
                     E-postayı dizinde göster
                   </label>
                 </div>
+              </div>
+
+              {/* Ek hizmet bölgeleri (kapsam üyelik paketine bağlı) */}
+              <div>
+                {(() => {
+                  const limit = REGION_LIMITS[profile.membership_tier] ?? 1
+                  return (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <MapPin size={14} className="muted" /> Ek Hizmet Bölgeleri ({profile.service_regions.length}/{limit})
+                        </span>
+                        {profile.service_regions.length < limit && (
+                          <button
+                            type="button"
+                            className="btn btn--secondary btn--sm"
+                            onClick={() => setProfile({ ...profile, service_regions: [...profile.service_regions, { city: '', district: '' }] })}
+                          >
+                            + Bölge
+                          </button>
+                        )}
+                      </div>
+                      <p className="muted" style={{ fontSize: '0.72rem', marginBottom: '6px' }}>
+                        Ana konum hariç. Kapsam üyelik paketine bağlı (Standart 1 · Temel 3 · Üst 10).
+                      </p>
+                      {profile.service_regions.length === 0 ? (
+                        <p className="muted" style={{ fontSize: '0.8rem' }}>Ek bölge eklenmemiş.</p>
+                      ) : (
+                        <div style={{ display: 'grid', gap: '6px' }}>
+                          {profile.service_regions.map((r, idx) => (
+                            <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '6px', alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                value={r.city}
+                                placeholder="İl"
+                                onChange={(e) => setProfile({ ...profile, service_regions: profile.service_regions.map((x, i) => i === idx ? { ...x, city: e.target.value } : x) })}
+                              />
+                              <input
+                                type="text"
+                                value={r.district ?? ''}
+                                placeholder="İlçe (opsiyonel)"
+                                onChange={(e) => setProfile({ ...profile, service_regions: profile.service_regions.map((x, i) => i === idx ? { ...x, district: e.target.value } : x) })}
+                              />
+                              <button type="button" className="btn btn--secondary btn--icon btn--sm" title="Kaldır"
+                                onClick={() => setProfile({ ...profile, service_regions: profile.service_regions.filter((_, i) => i !== idx) })}>
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
               </div>
 
               {/* Belgeler */}
