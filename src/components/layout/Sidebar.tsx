@@ -37,6 +37,7 @@ import {
   Sparkles,
   BarChart3,
   UserCheck,
+  Inbox,
 } from 'lucide-react'
 import './Sidebar.css'
 
@@ -60,6 +61,7 @@ const navGroups: { title: string | null; items: { path: string; icon: typeof Pac
       { path: '/seller-campaigns', icon: Tag, label: 'Kampanyalar' },
       { path: '/resellers', icon: Handshake, label: 'Bayilik Başvuruları' },
       { path: '/expert-leads', icon: UserCheck, label: 'Uzman & Uygulayıcı' },
+      { path: '/expert-requests', icon: Inbox, label: 'Uzman Talepleri' },
       { path: '/service-requests', icon: HardHat, label: 'Hizmet Talepleri' },
       { path: '/havar-requests', icon: Plane, label: 'HavarTek Talepleri' },
       { path: '/seller-contracts', icon: FileSignature, label: 'Sözleşmeler' },
