@@ -19,7 +19,18 @@ import {
   AlertTriangle,
   Upload,
   Truck,
+  Wrench,
 } from 'lucide-react'
+
+// Hizmet verilebilir ürünlerde seçilebilecek hizmet türleri (service_request.service_kind ile birebir).
+const SERVICE_KIND_OPTIONS: { value: string; label: string }[] = [
+  { value: 'other', label: 'Genel / Diğer' },
+  { value: 'carbon_fiber', label: 'Karbon Fiber Güçlendirme' },
+  { value: 'panic_room', label: 'Panik Odası' },
+  { value: 'descent', label: 'İniş Aparatı' },
+  { value: 'capsule_bed', label: 'Kapsül Yatak' },
+  { value: 'gas_cutoff', label: 'Gaz/Elektrik Kesici' },
+]
 import { Spinner, LoadingState } from '../../components/ui/Spinner'
 import { ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
@@ -161,6 +172,11 @@ export default function ProductEdit() {
     // Kargo (metadata): free_shipping = bu üründe kargo bedava; shipping_fee = ürün-bazlı kargo ücreti (₺).
     free_shipping: false,
     shipping_fee: 0,
+    // Hizmet verilebilir ürün (metadata): müşteri sepete eklemenin yanı sıra montaj/uygulama
+    // talebi açabilir. Talep havuza düşer; bayiler fiyat verir, admin en düşüğü seçer.
+    is_serviceable: false,
+    service_kind: 'other',
+    service_description: '',
   })
 
   // Galeri Resimleri State
@@ -220,6 +236,9 @@ export default function ProductEdit() {
           critical_threshold: Number(response.product.metadata?.critical_threshold) || 10,
           free_shipping: response.product.metadata?.free_shipping === true,
           shipping_fee: Number(response.product.metadata?.shipping_fee) || 0,
+          is_serviceable: response.product.metadata?.is_serviceable === true,
+          service_kind: String(response.product.metadata?.service_kind || 'other'),
+          service_description: String(response.product.metadata?.service_description || ''),
         })
 
         // Initialize EN translations (metadata.i18n.en)
@@ -312,6 +331,11 @@ export default function ProductEdit() {
         // Kargo: free_shipping işaretliyse ücret yok sayılır. shipping_fee ₺ (TL) cinsinden saklanır.
         free_shipping: !!physicalForm.free_shipping,
         shipping_fee: physicalForm.free_shipping ? 0 : Number(physicalForm.shipping_fee) || 0,
+        // Hizmet verilebilir ürün: storefront'ta "Talep Oluştur" butonu + "Hizmet" rozeti çıkar.
+        // Talep havuza düşer (otomatik atama yok); bayiler fiyat verir, admin en düşüğü seçer.
+        is_serviceable: !!physicalForm.is_serviceable,
+        service_kind: physicalForm.is_serviceable ? physicalForm.service_kind : 'other',
+        service_description: physicalForm.is_serviceable ? physicalForm.service_description.trim() : '',
         // İngilizce çeviri (storefront locale=en ise overlay eder). Boşsa alanlar
         // yine de yazılır; storefront boş başlığı yok sayıp tr'ye düşer.
         i18n: {
@@ -912,6 +936,57 @@ export default function ProductEdit() {
                         Sepet tutarı ücretsiz kargo eşiğini aşarsa kargo yine bedava olur.
                       </span>
                     </div>
+                  </div>
+
+                  {/* Hizmet verilebilir ürün */}
+                  <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border-primary)' }}>
+                    <label className="field__label" style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, marginBottom: 8 }}>
+                      <Wrench size={15} /> Hizmet / Montaj
+                    </label>
+
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginBottom: 10 }}>
+                      <input
+                        type="checkbox"
+                        checked={physicalForm.is_serviceable}
+                        onChange={(e) => setPhysicalForm({ ...physicalForm, is_serviceable: e.target.checked })}
+                        style={{ width: 16, height: 16 }}
+                      />
+                      <span style={{ fontWeight: 500 }}>Bu ürün için hizmet/montaj talebi alınabilir</span>
+                    </label>
+
+                    <span className="muted" style={{ fontSize: '0.75rem', marginBottom: 10, display: 'block' }}>
+                      İşaretlenirse müşteri ürün sayfasında <strong>"Talep Oluştur"</strong> butonunu görür (sepete ekleme de açık kalır).
+                      Düşen talep otomatik atanmaz; <strong>havuza</strong> düşer, bayiler fiyat verir, en düşüğü siz seçersiniz.
+                      Talepler <strong>Hizmet Talepleri</strong> sayfasında görünür.
+                    </span>
+
+                    {physicalForm.is_serviceable && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div className="field" style={{ maxWidth: '60%' }}>
+                          <label className="field__label">Hizmet Türü</label>
+                          <select
+                            value={physicalForm.service_kind}
+                            onChange={(e) => setPhysicalForm({ ...physicalForm, service_kind: e.target.value })}
+                          >
+                            {SERVICE_KIND_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="field">
+                          <label className="field__label">Hizmet Açıklaması (opsiyonel)</label>
+                          <textarea
+                            rows={2}
+                            value={physicalForm.service_description}
+                            placeholder="Örn. Yerinde montaj ve uygulama dahildir; talep sonrası bayiler keşifsiz fiyat verir."
+                            onChange={(e) => setPhysicalForm({ ...physicalForm, service_description: e.target.value })}
+                          />
+                          <span className="muted" style={{ fontSize: '0.75rem', marginTop: 4, display: 'block' }}>
+                            Müşteriye talep formunda gösterilir.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border-primary)', paddingTop: 14, marginTop: 14 }}>

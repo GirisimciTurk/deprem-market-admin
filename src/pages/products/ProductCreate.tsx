@@ -68,6 +68,10 @@ export default function ProductCreate() {
   const [gallery, setGallery] = useState<string[]>([])
   const [isUploading, setIsUploading] = useState(false)
 
+  // Hizmet verilebilir ürün: müşteri sepete eklemenin yanı sıra montaj/uygulama talebi açabilir.
+  // Talep havuza düşer; bayiler fiyat verir, admin en düşüğü seçer. (Detaylı ayar: ürün düzenle.)
+  const [service, setService] = useState({ is_serviceable: false, service_kind: 'other' })
+
   // Tek varyantlı (basit) ürün mü, yoksa seçenekli (Beden/Renk) çok-varyantlı mı?
   const [hasVariants, setHasVariants] = useState(false)
 
@@ -205,6 +209,10 @@ export default function ProductCreate() {
         options: optionsPayload,
         variants: variantsPayload,
         sales_channels: (channelsData?.sales_channels ?? []).map((c) => ({ id: c.id })),
+        // Hizmet verilebilir ürün işareti (storefront "Talep Oluştur" + havuz akışı).
+        ...(service.is_serviceable
+          ? { metadata: { is_serviceable: true, service_kind: service.service_kind } }
+          : {}),
       }
 
       const resp = await api.post<{ product: { id: string } }>('/admin/products', body)
@@ -295,6 +303,36 @@ export default function ProductCreate() {
                 <option value="draft">Pasif (Taslak)</option>
                 <option value="published">Aktif (Yayında)</option>
               </select>
+            </div>
+
+            {/* Hizmet verilebilir ürün */}
+            <div style={{ paddingTop: 12, borderTop: '1px solid var(--border-primary)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={service.is_serviceable}
+                  onChange={(e) => setService({ ...service, is_serviceable: e.target.checked })}
+                  style={{ width: 16, height: 16 }}
+                />
+                <span style={{ fontWeight: 500 }}>Bu ürün için hizmet/montaj talebi alınabilir</span>
+              </label>
+              <span className="muted" style={{ fontSize: '0.78rem', marginTop: 6, display: 'block' }}>
+                Müşteri ürün sayfasında "Talep Oluştur" görür; talep havuza düşer, bayiler fiyat verir.
+                Hizmet türü/açıklaması için kayıttan sonra ürünü düzenleyin.
+              </span>
+              {service.is_serviceable && (
+                <div className="field" style={{ maxWidth: 240, marginTop: 10 }}>
+                  <label className="field__label">Hizmet Türü</label>
+                  <select value={service.service_kind} onChange={(e) => setService({ ...service, service_kind: e.target.value })}>
+                    <option value="other">Genel / Diğer</option>
+                    <option value="carbon_fiber">Karbon Fiber Güçlendirme</option>
+                    <option value="panic_room">Panik Odası</option>
+                    <option value="descent">İniş Aparatı</option>
+                    <option value="capsule_bed">Kapsül Yatak</option>
+                    <option value="gas_cutoff">Gaz/Elektrik Kesici</option>
+                  </select>
+                </div>
+              )}
             </div>
           </div>
 

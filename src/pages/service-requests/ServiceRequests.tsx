@@ -13,6 +13,7 @@ import {
   Wand2,
   Wallet,
   ClipboardList,
+  Gavel,
 } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
@@ -43,6 +44,15 @@ interface ServiceOfferItem {
   total?: number
 }
 
+// Havuz/teklif akışında bayilerin verdiği fiyatlar. price TAM LİRA (major).
+interface ServiceBid {
+  seller_id: string
+  seller_name?: string
+  price: number
+  note?: string
+  created_at?: string
+}
+
 interface ServiceRequest {
   id: string
   service_title?: string
@@ -58,6 +68,9 @@ interface ServiceRequest {
   preferred_dates?: string[] | null
   note?: string
   assigned_seller_id?: string | null
+  product_id?: string | null
+  is_bidding?: boolean
+  bids?: ServiceBid[] | null
   survey_scheduled_at?: string | null
   survey_done_at?: string | null
   survey_report?: string
@@ -457,6 +470,75 @@ function RequestDetail({ req, sellers, sellerName, busy, onClose, onAction, onPa
           <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
             {req.install_scheduled_at && <>Montaj randevusu: <strong style={{ color: 'var(--text-primary)' }}>{formatDate(req.install_scheduled_at)}</strong></>}
             {req.install_done_at && <> · Tamamlandı: <strong style={{ color: 'var(--text-primary)' }}>{formatDate(req.install_done_at)}</strong></>}
+          </div>
+        )}
+
+        {/* ───────── HAVUZ TEKLİFLERİ ───────── */}
+        {req.is_bidding && (
+          <div>
+            <SectionTitle icon={<Gavel size={15} />}>Bayi Teklifleri (Havuz)</SectionTitle>
+            {!req.bids || req.bids.length === 0 ? (
+              <div style={{ fontSize: 13, color: 'var(--text-tertiary)' }}>
+                Henüz teklif gelmedi. Bayiler havuzdan fiyat verince burada listelenir; en düşüğü seçtiğinizde
+                bayiye atanır ve fiyat müşteriye teklif olarak gönderilir.
+              </div>
+            ) : (
+              <table className="table" style={{ width: '100%', fontSize: 13 }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: 'left' }}>Bayi</th>
+                    <th style={{ textAlign: 'right' }}>Teklif</th>
+                    <th style={{ textAlign: 'left' }}>Not</th>
+                    <th style={{ textAlign: 'left' }}>Tarih</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...req.bids]
+                    .sort((a, b) => (a.price ?? 0) - (b.price ?? 0))
+                    .map((b, i) => {
+                      const isLowest = i === 0
+                      const isWinner = req.assigned_seller_id === b.seller_id
+                      return (
+                        <tr key={b.seller_id}>
+                          <td>
+                            {sellerName.get(b.seller_id) ?? b.seller_name ?? `#${b.seller_id.slice(-6)}`}
+                            {isLowest && (
+                              <span style={{ marginLeft: 6 }}>
+                                <Badge status={{ variant: 'success', label: 'En düşük' }} />
+                              </span>
+                            )}
+                            {isWinner && (
+                              <span style={{ marginLeft: 6 }}>
+                                <Badge status={{ variant: 'info', label: 'Seçildi' }} />
+                              </span>
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: isLowest ? 700 : 400 }}>{formatLira(b.price)}</td>
+                          <td style={{ color: 'var(--text-tertiary)' }}>{b.note || '—'}</td>
+                          <td style={{ color: 'var(--text-tertiary)' }}>{b.created_at ? formatDateShort(b.created_at) : '—'}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            {!req.assigned_seller_id && (
+                              <button
+                                className="btn btn--primary btn--sm"
+                                disabled={busy}
+                                onClick={() =>
+                                  onAction(
+                                    { action: 'select_bid', seller_id: b.seller_id },
+                                    'Teklif seçildi; bayiye atandı ve fiyat müşteriye teklif olarak gönderildi.'
+                                  )
+                                }
+                              >
+                                Seç
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                </tbody>
+              </table>
+            )}
           </div>
         )}
 
