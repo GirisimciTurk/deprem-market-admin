@@ -95,9 +95,22 @@ export default function Resellers() {
   })
 
   const convertMutation = useMutation({
-    mutationFn: (id: string) => api.post(`/admin/sellers/from-application/${id}`),
-    onSuccess: () => {
-      notify('Başvuru onaylandı ve satıcı oluşturuldu. "Satıcılar" sayfasından yönetebilirsiniz.')
+    mutationFn: (id: string) =>
+      api.post<{ invite?: { sent: boolean; email?: string; message?: string } }>(
+        `/admin/sellers/from-application/${id}`
+      ),
+    onSuccess: (data) => {
+      const invite = data?.invite
+      if (invite?.sent) {
+        notify(
+          `Satıcı oluşturuldu ve ${invite.email || 'bayiye'} adresine "şifreni belirle" daveti gönderildi. Bayi panele giriş yapıp dükkanını açabilir.`
+        )
+      } else {
+        notify(
+          `Satıcı oluşturuldu, ancak davet gönderilemedi${invite?.message ? ` (${invite.message})` : ''}. "Satıcılar" sayfasından satıcıyı tekrar davet edebilirsiniz.`,
+          'warning'
+        )
+      }
       qc.invalidateQueries({ queryKey: ['resellers'] })
       qc.invalidateQueries({ queryKey: ['sellers'] })
       setSelectedApp(null)
