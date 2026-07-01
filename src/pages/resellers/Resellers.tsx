@@ -425,10 +425,10 @@ export default function Resellers() {
                     {selectedApp.status === 'suspended' ? 'Yeniden Aktifleştir' : 'Onayla'}
                   </button>
                 )}
-                {/* "Satıcıya Dönüştür" yalnızca bayilik başvuruları içindir; firma
-                    (kurumsal iş ortaklığı) başvuruları satıcıya dönüştürülmez. */}
+                {/* "Satıcıya Dönüştür" yalnızca "Firmamız Ol" (ürün satan firma)
+                    başvuruları içindir; bayilik (hizmet) başvuruları dönüştürülmez. */}
                 {selectedApp.status !== 'rejected' &&
-                  selectedApp.application_type !== 'firma' && (
+                  selectedApp.application_type === 'firma' && (
                     <button
                       className="btn btn--primary"
                       onClick={() => handleConvert(selectedApp.id)}
@@ -438,9 +438,9 @@ export default function Resellers() {
                     </button>
                   )}
               </div>
-              {selectedApp.application_type === 'firma' && (
+              {selectedApp.application_type !== 'firma' && (
                 <p className="muted" style={{ fontSize: '0.78rem', marginTop: '10px', textAlign: 'right' }}>
-                  Firma (kurumsal iş ortaklığı) başvurusu — satıcıya dönüştürülmez; kurumsal süreç elle yürütülür.
+                  Bayilik (hizmet) başvurusu — ürün satıcısına dönüştürülmez; hizmet tarafında müşteri yönlendirmesiyle yürütülür.
                 </p>
               )}
             </div>
