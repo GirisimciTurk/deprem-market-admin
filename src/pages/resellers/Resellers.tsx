@@ -36,8 +36,27 @@ interface ResellerApplication {
   // Backend'in otomatik vergi no kontrolü (offline VKN/TCKN sağlaması)
   tax_number_check?: { valid: boolean; type: 'vkn' | 'tckn' | null; reason: string; normalized: string }
   status: 'pending' | 'approved' | 'rejected' | 'suspended'
+  // 'bayi' (bayilik başvurusu) | 'firma' (kurumsal iş ortaklığı, /firma-ol)
+  application_type?: 'bayi' | 'firma'
   message: string
   created_at: string
+}
+
+/** Başvuru türü rozeti — Firma (kurumsal) / Bayi ayrımı. */
+function TypeBadge({ type }: { type?: 'bayi' | 'firma' }) {
+  const isFirma = type === 'firma'
+  const bg = isFirma ? 'rgba(79,70,229,0.12)' : 'rgba(100,116,139,0.12)'
+  const color = isFirma ? 'var(--accent-primary, #4f46e5)' : 'var(--text-secondary)'
+  return (
+    <span
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.68rem', fontWeight: 700,
+        padding: '1px 8px', borderRadius: 999, background: bg, color, verticalAlign: 'middle',
+      }}
+    >
+      {isFirma ? 'Firma' : 'Bayi'}
+    </span>
+  )
 }
 
 /** Otomatik vergi no doğrulama rozeti (VKN/TCKN sağlaması). */
@@ -61,17 +80,19 @@ export default function Resellers() {
   const [offset, setOffset] = useState(0)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('')
+  const [typeFilter, setTypeFilter] = useState<string>('')
   const [selectedApp, setSelectedApp] = useState<ResellerApplication | null>(null)
   const debounced = useDebounce(search)
 
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['resellers', offset, debounced, statusFilter],
+    queryKey: ['resellers', offset, debounced, statusFilter, typeFilter],
     queryFn: () =>
       api.get<{ applications: ResellerApplication[]; count: number }>('/admin/reseller-applications', {
         limit: LIMIT,
         offset,
         q: debounced || undefined,
         status: statusFilter || undefined,
+        type: typeFilter || undefined,
       }),
     placeholderData: keepPreviousData,
   })
@@ -144,7 +165,7 @@ export default function Resellers() {
 
   return (
     <>
-      <Header title="Bayilik Başvuruları" subtitle="Gelen bayi başvurularını inceleyin ve durumlarını yönetin" />
+      <Header title="Bayi & Firma Başvuruları" subtitle="Gelen bayilik ve kurumsal firma başvurularını inceleyin ve durumlarını yönetin" />
 
       <div style={{ padding: '24px' }}>
         {/* Toolbar */}
@@ -163,6 +184,18 @@ export default function Resellers() {
               }}
             />
           </div>
+          <select
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value)
+              setOffset(0)
+            }}
+            style={{ width: 'auto', minWidth: '140px' }}
+          >
+            <option value="">Tüm Türler</option>
+            <option value="bayi">Bayi</option>
+            <option value="firma">Firma</option>
+          </select>
           <select
             value={statusFilter}
             onChange={(e) => {
@@ -188,7 +221,7 @@ export default function Resellers() {
           <EmptyState
             icon={<Handshake size={26} />}
             title="Başvuru bulunamadı"
-            description={search || statusFilter ? 'Filtreye uygun bayilik başvurusu yok.' : 'Henüz başvuru bulunmamaktadır.'}
+            description={search || statusFilter || typeFilter ? 'Filtreye uygun başvuru yok.' : 'Henüz başvuru bulunmamaktadır.'}
           />
         ) : (
           <>
@@ -211,6 +244,7 @@ export default function Resellers() {
                       <div>
                         <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
                           <Building size={14} className="muted" /> {app.company_name}
+                          <TypeBadge type={app.application_type} />
                         </div>
                         <div className="muted" style={{ fontSize: '0.78rem', marginTop: '2px' }}>
                           Vergi No: {app.tax_number || '—'}
@@ -300,7 +334,7 @@ export default function Resellers() {
 
       {/* Detail Modal */}
       {selectedApp && (
-        <Modal title="Bayilik Başvuru Detayı" onClose={() => setSelectedApp(null)} size="lg">
+        <Modal title={`${selectedApp.application_type === 'firma' ? 'Firma' : 'Bayilik'} Başvuru Detayı`} onClose={() => setSelectedApp(null)} size="lg">
           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
             <div
               style={{
@@ -317,6 +351,7 @@ export default function Resellers() {
                 <span className="muted" style={{ fontSize: '0.78rem', display: 'block' }}>Şirket Unvanı</span>
                 <strong style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
                   <Building size={14} /> {selectedApp.company_name}
+                  <TypeBadge type={selectedApp.application_type} />
                 </strong>
               </div>
               <div>
@@ -390,16 +425,24 @@ export default function Resellers() {
                     {selectedApp.status === 'suspended' ? 'Yeniden Aktifleştir' : 'Onayla'}
                   </button>
                 )}
-                {selectedApp.status !== 'rejected' && (
-                  <button
-                    className="btn btn--primary"
-                    onClick={() => handleConvert(selectedApp.id)}
-                    disabled={convertMutation.isPending}
-                  >
-                    {convertMutation.isPending ? 'Oluşturuluyor...' : 'Satıcıya Dönüştür'}
-                  </button>
-                )}
+                {/* "Satıcıya Dönüştür" yalnızca bayilik başvuruları içindir; firma
+                    (kurumsal iş ortaklığı) başvuruları satıcıya dönüştürülmez. */}
+                {selectedApp.status !== 'rejected' &&
+                  selectedApp.application_type !== 'firma' && (
+                    <button
+                      className="btn btn--primary"
+                      onClick={() => handleConvert(selectedApp.id)}
+                      disabled={convertMutation.isPending}
+                    >
+                      {convertMutation.isPending ? 'Oluşturuluyor...' : 'Satıcıya Dönüştür'}
+                    </button>
+                  )}
               </div>
+              {selectedApp.application_type === 'firma' && (
+                <p className="muted" style={{ fontSize: '0.78rem', marginTop: '10px', textAlign: 'right' }}>
+                  Firma (kurumsal iş ortaklığı) başvurusu — satıcıya dönüştürülmez; kurumsal süreç elle yürütülür.
+                </p>
+              )}
             </div>
           </div>
         </Modal>
