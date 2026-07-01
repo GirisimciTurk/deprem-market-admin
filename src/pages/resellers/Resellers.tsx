@@ -122,13 +122,18 @@ export default function Resellers() {
       ),
     onSuccess: (data) => {
       const invite = data?.invite
+      const isFirma = selectedApp?.application_type === 'firma'
+      const roleWord = isFirma ? 'Satıcı' : 'Hizmet ortağı'
+      const panelHint = isFirma
+        ? 'Panele girip mağazasını açabilir.'
+        : 'Panele girip yönlendirilen hizmet taleplerini görebilir.'
       if (invite?.sent) {
         notify(
-          `Satıcı oluşturuldu ve ${invite.email || 'bayiye'} adresine "şifreni belirle" daveti gönderildi. Bayi panele giriş yapıp dükkanını açabilir.`
+          `${roleWord} oluşturuldu ve ${invite.email || 'ilgili adrese'} "şifreni belirle" daveti gönderildi. ${panelHint}`
         )
       } else {
         notify(
-          `Satıcı oluşturuldu, ancak davet gönderilemedi${invite?.message ? ` (${invite.message})` : ''}. "Satıcılar" sayfasından satıcıyı tekrar davet edebilirsiniz.`,
+          `${roleWord} oluşturuldu, ancak davet gönderilemedi${invite?.message ? ` (${invite.message})` : ''}. "Satıcılar" sayfasından tekrar davet edebilirsiniz.`,
           'warning'
         )
       }
@@ -425,24 +430,22 @@ export default function Resellers() {
                     {selectedApp.status === 'suspended' ? 'Yeniden Aktifleştir' : 'Onayla'}
                   </button>
                 )}
-                {/* "Satıcıya Dönüştür" yalnızca "Firmamız Ol" (ürün satan firma)
-                    başvuruları içindir; bayilik (hizmet) başvuruları dönüştürülmez. */}
-                {selectedApp.status !== 'rejected' &&
-                  selectedApp.application_type === 'firma' && (
-                    <button
-                      className="btn btn--primary"
-                      onClick={() => handleConvert(selectedApp.id)}
-                      disabled={convertMutation.isPending}
-                    >
-                      {convertMutation.isPending ? 'Oluşturuluyor...' : 'Satıcıya Dönüştür'}
-                    </button>
-                  )}
+                {/* Firma → ürün satan satıcı; Bayi → hizmet ortağı. İkisi de panel +
+                    havuz için satıcı hesabı olur; fark partner_type'tadır (backend). */}
+                {selectedApp.status !== 'rejected' && (
+                  <button
+                    className="btn btn--primary"
+                    onClick={() => handleConvert(selectedApp.id)}
+                    disabled={convertMutation.isPending}
+                  >
+                    {convertMutation.isPending
+                      ? 'Oluşturuluyor...'
+                      : selectedApp.application_type === 'firma'
+                        ? 'Satıcıya Dönüştür'
+                        : 'Hizmet Ortağı Olarak Ekle'}
+                  </button>
+                )}
               </div>
-              {selectedApp.application_type !== 'firma' && (
-                <p className="muted" style={{ fontSize: '0.78rem', marginTop: '10px', textAlign: 'right' }}>
-                  Bayilik (hizmet) başvurusu — ürün satıcısına dönüştürülmez; hizmet tarafında müşteri yönlendirmesiyle yürütülür.
-                </p>
-              )}
             </div>
           </div>
         </Modal>
