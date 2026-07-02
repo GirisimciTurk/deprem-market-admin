@@ -10,6 +10,13 @@
   gap: 16px;
 }
 
+/* Kaydırma kabı .app-layout__content olduğu için sticky ona göre tutunur. */
+.header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
 .header__title {
   font-size: 1.25rem;
   font-weight: 700;

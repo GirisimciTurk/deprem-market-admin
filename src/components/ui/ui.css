@@ -149,3 +149,49 @@
 .muted { color: var(--text-tertiary); }
 .nowrap { white-space: nowrap; }
 .spin-btn { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Switch — aç/kapa anahtarı. Global `input { width: 100% }` kuralı checkbox'ı
+   satıra yaydığı için appearance sıfırlanıp sabit boyut verilir. */
+.switch {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 40px;
+  min-width: 40px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--border-primary);
+  position: relative;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+  flex-shrink: 0;
+}
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform var(--transition-fast);
+}
+.switch:checked { background: var(--accent-success); }
+.switch:checked::after { transform: translateX(18px); }
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  cursor: pointer;
+}
+.switch-row__title { font-weight: 600; font-size: 0.9rem; }
+.switch-row__hint { font-size: 0.78rem; color: var(--text-tertiary); margin-top: 1px; }

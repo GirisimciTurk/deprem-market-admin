@@ -6,11 +6,13 @@ interface HeaderProps {
   title: string
   subtitle?: string
   actions?: React.ReactNode
+  /** Sayfa kaydırılınca başlık + aksiyonlar üstte sabit kalır. */
+  sticky?: boolean
 }
 
-export default function Header({ title, subtitle, actions }: HeaderProps) {
+export default function Header({ title, subtitle, actions, sticky }: HeaderProps) {
   return (
-    <header className="header">
+    <header className={`header${sticky ? ' header--sticky' : ''}`}>
       <div className="header__left">
         <div>
           <h1 className="header__title">{title}</h1>

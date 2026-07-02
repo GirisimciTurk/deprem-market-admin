@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FolderTree, Search, Plus, Pencil, Trash2 } from 'lucide-react'
+import { FolderTree, Search, Plus, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
@@ -29,6 +29,41 @@ interface ListResponse {
 const FIELDS =
   'id,name,handle,description,is_active,rank,parent_category_id,parent_category.name'
 
+// Kategorileri üstlerine göre gruplar (rank + Türkçe ada göre sıralı).
+// Üstü listede olmayanlar kök gibi gösterilir (sayfalama vb. durumunda kaybolmasın).
+function buildChildrenMap(categories: Category[]): Map<string | null, Category[]> {
+  const ids = new Set(categories.map((c) => c.id))
+  const byParent = new Map<string | null, Category[]>()
+  for (const c of categories) {
+    const p = c.parent_category_id && ids.has(c.parent_category_id) ? c.parent_category_id : null
+    byParent.set(p, [...(byParent.get(p) ?? []), c])
+  }
+  const sortFn = (a: Category, b: Category) =>
+    (a.rank ?? 0) - (b.rank ?? 0) || a.name.localeCompare(b.name, 'tr')
+  for (const arr of byParent.values()) arr.sort(sortFn)
+  return byParent
+}
+
+// Kategorileri hiyerarşik sıraya dizer: kökler ve hemen altlarında altları,
+// derinlik bilgisiyle. `excludeId` verilirse o kategori VE tüm alt ağacı
+// atlanır (düzenlemede kendini/altını üst seçip döngü oluşmasın diye).
+function flattenCategoryTree(
+  categories: Category[],
+  excludeId?: string
+): { c: Category; depth: number }[] {
+  const byParent = buildChildrenMap(categories)
+  const out: { c: Category; depth: number }[] = []
+  const walk = (parent: string | null, depth: number) => {
+    for (const c of byParent.get(parent) ?? []) {
+      if (c.id === excludeId) continue
+      out.push({ c, depth })
+      walk(c.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  return out
+}
+
 export default function Categories() {
   const queryClient = useQueryClient()
   const { notify } = useToast()
@@ -53,6 +88,36 @@ export default function Categories() {
     )
   }, [all, debounced])
 
+  // Hiyerarşi ağacı: kökler görünür, bir satıra tıklayınca altları açılır.
+  // Arama yapılırken ağaç yerine düz eşleşme listesi gösterilir.
+  const isSearching = debounced.trim().length > 0
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const childrenOf = useMemo(() => buildChildrenMap(all), [all])
+  const treeRows = useMemo(() => {
+    const out: { c: Category; depth: number; childCount: number }[] = []
+    const walk = (parent: string | null, depth: number) => {
+      for (const c of childrenOf.get(parent) ?? []) {
+        out.push({ c, depth, childCount: (childrenOf.get(c.id) ?? []).length })
+        if (expandedIds.has(c.id)) walk(c.id, depth + 1)
+      }
+    }
+    walk(null, 0)
+    return out
+  }, [childrenOf, expandedIds])
+  const rows = isSearching
+    ? filtered.map((c) => ({ c, depth: 0, childCount: 0 }))
+    : treeRows
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['admin-categories'] })
 
   const deleteMutation = useMutation({
@@ -70,6 +135,7 @@ export default function Categories() {
       <Header
         title="Kategoriler"
         subtitle="Ürün kategorilerini oluşturun, düzenleyin ve listeleyin"
+        sticky
         actions={
           <button className="btn btn--primary" onClick={() => setCreating(true)}>
             <Plus size={16} /> Yeni Kategori
@@ -113,13 +179,42 @@ export default function Categories() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((c) => (
+                {rows.map(({ c, depth, childCount }) => {
+                  const isOpen = expandedIds.has(c.id)
+                  const canToggle = childCount > 0 && !isSearching
+                  return (
                   <tr key={c.id}>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{c.name}</div>
-                      {c.handle && (
-                        <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>/{c.handle}</div>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingLeft: depth * 24 }}>
+                        {canToggle ? (
+                          <button
+                            onClick={() => toggleExpanded(c.id)}
+                            aria-expanded={isOpen}
+                            aria-label={isOpen ? 'Alt kategorileri gizle' : 'Alt kategorileri göster'}
+                            style={{ display: 'flex', alignItems: 'center', padding: 2, color: 'var(--text-tertiary)' }}
+                          >
+                            {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                          </button>
+                        ) : (
+                          <span style={{ width: 20, flexShrink: 0 }} />
+                        )}
+                        <div
+                          onClick={canToggle ? () => toggleExpanded(c.id) : undefined}
+                          style={{ cursor: canToggle ? 'pointer' : undefined }}
+                        >
+                          <div style={{ fontWeight: 600 }}>
+                            {c.name}
+                            {childCount > 0 && (
+                              <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text-tertiary)', marginLeft: 6 }}>
+                                ({childCount})
+                              </span>
+                            )}
+                          </div>
+                          {c.handle && (
+                            <div style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>/{c.handle}</div>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td>{c.parent_category?.name || <span style={{ color: 'var(--text-tertiary)' }}>—</span>}</td>
                     <td>
@@ -142,7 +237,8 @@ export default function Categories() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -195,8 +291,11 @@ function CategoryFormModal({ category, allCategories, onClose, onSaved }: FormMo
   const [description, setDescription] = useState(category?.description ?? '')
   const [isActive, setIsActive] = useState(category?.is_active !== false)
 
-  // Üst kategori seçeneklerinden kendini çıkar (döngüyü önler).
-  const parentOptions = allCategories.filter((c) => c.id !== category?.id)
+  // Üst kategori seçenekleri: hiyerarşik sırada, kendisi + alt ağacı hariç.
+  const parentOptions = useMemo(
+    () => flattenCategoryTree(allCategories, category?.id),
+    [allCategories, category?.id]
+  )
 
   const mutation = useMutation({
     mutationFn: () => {
@@ -255,9 +354,9 @@ function CategoryFormModal({ category, allCategories, onClose, onSaved }: FormMo
         <label className="field__label">Üst Kategori</label>
         <select value={parentId} onChange={(e) => setParentId(e.target.value)}>
           <option value="">Yok (ana kategori)</option>
-          {parentOptions.map((c) => (
+          {parentOptions.map(({ c, depth }) => (
             <option key={c.id} value={c.id}>
-              {c.name}
+              {' '.repeat(depth * 4) + (depth > 0 ? '└ ' : '') + c.name}
             </option>
           ))}
         </select>
@@ -271,9 +370,17 @@ function CategoryFormModal({ category, allCategories, onClose, onSaved }: FormMo
           placeholder="Opsiyonel kısa açıklama"
         />
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
-        <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-        Aktif (mağazada görünür)
+      <label className="switch-row">
+        <div>
+          <div className="switch-row__title">Aktif</div>
+          <div className="switch-row__hint">Kategori mağazada görünür</div>
+        </div>
+        <input
+          type="checkbox"
+          className="switch"
+          checked={isActive}
+          onChange={(e) => setIsActive(e.target.checked)}
+        />
       </label>
     </Modal>
   )
