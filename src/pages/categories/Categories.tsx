@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { FolderTree, Search, Plus, Pencil, Trash2, ChevronDown, ChevronRight } from 'lucide-react'
+import { FolderTree, Search, Plus, Pencil, Trash2, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Modal from '../../components/ui/Modal'
 import Badge from '../../components/ui/Badge'
@@ -130,6 +130,57 @@ export default function Categories() {
     onError: (e: Error) => notify(e.message, 'error'),
   })
 
+  // Bir kategorinin "etkin üstü": üstü listede yoksa kök gibi davranır
+  // (buildChildrenMap ile aynı mantık — kardeşler doğru gruplansın).
+  const idSet = useMemo(() => new Set(all.map((c) => c.id)), [all])
+  const effectiveParentId = (c: Category): string | null =>
+    c.parent_category_id && idSet.has(c.parent_category_id) ? c.parent_category_id : null
+
+  // Aynı üst kategori altındaki kardeşleri yeniden sıralar. Medusa rank'ı
+  // "bu konuma taşı" olarak işler: tek bir kategorinin rank'ını komşusunun
+  // rank'ına ayarlamak, aradaki kardeşi (rerankAllSiblings) otomatik kaydırır.
+  // Bu yüzden bir komşuyla takas için TEK update yeterli. Değişiklik anında
+  // görünsün diye önbellek iyimser güncellenir; hata olursa geri alınır.
+  const reorderMutation = useMutation({
+    mutationFn: (u: { id: string; rank: number }) =>
+      api.post(`/admin/product-categories/${u.id}`, { rank: u.rank }),
+    onError: (e: Error) => {
+      notify(e.message || 'Sıralama kaydedilemedi.', 'error')
+      invalidate()
+    },
+    onSettled: () => invalidate(),
+  })
+
+  const move = (c: Category, dir: -1 | 1) => {
+    if (reorderMutation.isPending) return
+    const siblings = childrenOf.get(effectiveParentId(c)) ?? []
+    const idx = siblings.findIndex((s) => s.id === c.id)
+    const target = idx + dir
+    if (idx < 0 || target < 0 || target >= siblings.length) return
+
+    const neighbor = siblings[target]
+    const cRank = c.rank ?? idx
+    const nRank = neighbor.rank ?? target
+    if (cRank === nRank) return // eşit rank (nadir) — takas görünür değişiklik yapmaz
+
+    // İyimser: iki komşunun rank'ını yer değiştir (Medusa update'te aynısını yapar).
+    queryClient.setQueryData<ListResponse>(['admin-categories'], (old) =>
+      old
+        ? {
+            ...old,
+            product_categories: old.product_categories.map((pc) =>
+              pc.id === c.id
+                ? { ...pc, rank: nRank }
+                : pc.id === neighbor.id
+                  ? { ...pc, rank: cRank }
+                  : pc
+            ),
+          }
+        : old
+    )
+    reorderMutation.mutate({ id: c.id, rank: nRank })
+  }
+
   return (
     <>
       <Header
@@ -182,6 +233,9 @@ export default function Categories() {
                 {rows.map(({ c, depth, childCount }) => {
                   const isOpen = expandedIds.has(c.id)
                   const canToggle = childCount > 0 && !isSearching
+                  const siblings = childrenOf.get(effectiveParentId(c)) ?? []
+                  const sibIdx = siblings.findIndex((s) => s.id === c.id)
+                  const canReorder = !isSearching && siblings.length > 1
                   return (
                   <tr key={c.id}>
                     <td>
@@ -228,6 +282,30 @@ export default function Categories() {
                     </td>
                     <td>
                       <div className="row-actions" style={{ justifyContent: 'flex-end' }}>
+                        {canReorder && (
+                          <div style={{ display: 'inline-flex', border: '1px solid var(--border-primary)', borderRadius: 6, overflow: 'hidden' }}>
+                            <button
+                              type="button"
+                              aria-label="Yukarı taşı"
+                              title="Yukarı taşı"
+                              disabled={sibIdx <= 0 || reorderMutation.isPending}
+                              onClick={() => move(c, -1)}
+                              style={{ display: 'flex', alignItems: 'center', padding: '6px 8px', color: 'var(--text-secondary)', cursor: sibIdx <= 0 || reorderMutation.isPending ? 'not-allowed' : 'pointer', opacity: sibIdx <= 0 ? 0.35 : 1 }}
+                            >
+                              <ArrowUp size={14} />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label="Aşağı taşı"
+                              title="Aşağı taşı"
+                              disabled={sibIdx >= siblings.length - 1 || reorderMutation.isPending}
+                              onClick={() => move(c, 1)}
+                              style={{ display: 'flex', alignItems: 'center', padding: '6px 8px', borderLeft: '1px solid var(--border-primary)', color: 'var(--text-secondary)', cursor: sibIdx >= siblings.length - 1 || reorderMutation.isPending ? 'not-allowed' : 'pointer', opacity: sibIdx >= siblings.length - 1 ? 0.35 : 1 }}
+                            >
+                              <ArrowDown size={14} />
+                            </button>
+                          </div>
+                        )}
                         <button className="btn btn--secondary btn--sm" onClick={() => setEditing(c)}>
                           <Pencil size={14} /> Düzenle
                         </button>
