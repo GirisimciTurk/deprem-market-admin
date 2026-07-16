@@ -20,6 +20,7 @@ import {
   Upload,
   Truck,
   Wrench,
+  ShieldCheck,
 } from 'lucide-react'
 
 // Hizmet verilebilir ürünlerde seçilebilecek hizmet türleri (service_request.service_kind ile birebir).
@@ -37,12 +38,13 @@ import { useToast } from '../../components/ui/toast-context'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
 import { productStatus } from '../../lib/statusLabels'
+import CertificationsManager from './CertificationsManager'
 import { api } from '../../lib/api'
 import { API_BASE, getToken } from '../../lib/auth'
 import { toMajor, toMinor } from '../../lib/format'
 import type { MoneyAmount } from '../../lib/types'
 
-type TabType = 'details' | 'physical' | 'gallery' | 'variants' | 'showcase' | 'i18n'
+type TabType = 'details' | 'physical' | 'gallery' | 'variants' | 'showcase' | 'certifications' | 'i18n'
 
 interface ShowcaseFeature {
   iconName: string
@@ -666,6 +668,12 @@ export default function ProductEdit() {
                   <Sparkles size={15} /> Showcase & Vitrin
                 </button>
                 <button
+                  className={`tabs-navigation__btn ${activeTab === 'certifications' ? 'active' : ''}`}
+                  onClick={() => setActiveTab('certifications')}
+                >
+                  <ShieldCheck size={15} /> Sertifikalar
+                </button>
+                <button
                   className={`tabs-navigation__btn ${activeTab === 'i18n' ? 'active' : ''}`}
                   onClick={() => setActiveTab('i18n')}
                 >
@@ -705,6 +713,16 @@ export default function ProductEdit() {
                       {updateProductMutation.isPending ? <Spinner size={14} /> : <Save size={15} />} Kaydet
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Tab: Sertifikalar (admin doğrulama) */}
+              {activeTab === 'certifications' && (
+                <div className="card animate-fadeIn" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                  <h3 style={{ fontSize: '1.05rem', fontWeight: 700, borderBottom: '1px solid var(--border-primary)', paddingBottom: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ShieldCheck size={18} /> Sertifikalar & Belgeler
+                  </h3>
+                  <CertificationsManager productId={productId} />
                 </div>
               )}
 
