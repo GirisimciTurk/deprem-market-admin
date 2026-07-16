@@ -16,13 +16,17 @@ type Cert = {
  * bir sertifikayı "Doğrulanmış" yapan TEK yetkili yol burasıdır. Kendi kendine yeterli:
  * /admin/products/:id/certifications GET/POST ile çalışır (ProductEdit save akışından bağımsız).
  */
-export default function CertificationsManager({ productId }: { productId: string }) {
+export default function CertificationsManager({ productId }: { productId?: string }) {
   const { notify } = useToast()
   const [certs, setCerts] = useState<Cert[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    if (!productId) {
+      setLoading(false)
+      return
+    }
     let active = true
     api
       .get<{ certifications: any[] }>(`/admin/products/${productId}/certifications`)
@@ -51,6 +55,7 @@ export default function CertificationsManager({ productId }: { productId: string
   const remove = (i: number) => setCerts((c) => c.filter((_, idx) => idx !== i))
 
   const save = async () => {
+    if (!productId) return
     setSaving(true)
     try {
       const payload = certs
@@ -81,6 +86,7 @@ export default function CertificationsManager({ productId }: { productId: string
     }
   }
 
+  if (!productId) return null
   if (loading) return <Spinner />
 
   return (
