@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tansta
 import { ClipboardCheck, Package, Check, X, Store, Calendar, Barcode } from 'lucide-react'
 import Header from '../../components/layout/Header'
 import Badge from '../../components/ui/Badge'
+import Modal from '../../components/ui/Modal'
 import Pagination from '../../components/ui/Pagination'
 import { LoadingState } from '../../components/ui/Spinner'
 import { ErrorState } from '../../components/ui/StateBox'
@@ -36,6 +37,10 @@ interface AiSuggestions {
   bullet_points?: string[]
   tags?: string[]
 }
+interface Rejection {
+  reason?: string | null
+  at?: string
+}
 interface ApprovalProduct {
   id: string
   title: string
@@ -45,7 +50,35 @@ interface ApprovalProduct {
   created_at: string
   seller: { id: string; name: string; handle: string } | null
   variants: ApprovalVariant[]
-  metadata: { ai_moderation?: AiModeration; ai_suggestions?: AiSuggestions } | null
+  metadata: {
+    ai_moderation?: AiModeration
+    ai_suggestions?: AiSuggestions
+    rejection?: Rejection
+    last_rejection?: Rejection
+  } | null
+}
+
+/**
+ * Red gerekçesini gösterir. `rejection` aktif reddi, `last_rejection` satıcının
+ * düzeltip yeniden onaya gönderdiği ürünün önceki reddini temsil eder — ikincisi
+ * "aynı hatayı tekrar etmiş mi?" kontrolü için onay kuyruğunda değerlidir.
+ */
+function RejectionInfo({ metadata }: { metadata: ApprovalProduct['metadata'] }) {
+  const active = metadata?.rejection
+  const previous = metadata?.last_rejection
+  const shown = active ?? previous
+  if (!shown?.reason) return null
+  const isPrevious = !active
+  return (
+    <div
+      style={{ marginTop: 6, fontSize: '0.72rem', lineHeight: 1.5, maxWidth: 340, padding: '6px 8px', borderRadius: 'var(--radius-sm)', color: isPrevious ? 'var(--text-secondary)' : '#b91c1c', background: isPrevious ? 'var(--bg-tertiary)' : '#fef2f2' }}
+    >
+      <b>{isPrevious ? 'Önceki red gerekçesi' : 'Red gerekçesi'}:</b> {shown.reason}
+      {shown.at && (
+        <span className="muted"> · {new Date(shown.at).toLocaleDateString('tr-TR')}</span>
+      )}
+    </div>
+  )
 }
 
 /** Ürünün AI değerlendirmesini ve içerik önerisini kompakt gösterir. */
@@ -124,11 +157,24 @@ export default function ProductApprovals() {
   })
   const products = data?.products ?? []
 
+  // Reddedilecek ürün (modal açık) + gerekçe metni.
+  const [rejecting, setRejecting] = useState<ApprovalProduct | null>(null)
+  const [reason, setReason] = useState('')
+
   const actionMutation = useMutation({
-    mutationFn: ({ id, action }: { id: string; action: 'publish' | 'reject' }) =>
-      api.post<{ id: string; status: string }>(`/admin/product-approvals/${id}`, { action }),
+    mutationFn: ({ id, action, reason }: { id: string; action: 'publish' | 'reject'; reason?: string }) =>
+      api.post<{ id: string; status: string }>(`/admin/product-approvals/${id}`, {
+        action,
+        ...(reason ? { reason } : {}),
+      }),
     onSuccess: (_r, vars) => {
-      notify(vars.action === 'publish' ? 'Ürün yayına alındı.' : 'Ürün reddedildi.')
+      notify(
+        vars.action === 'publish'
+          ? 'Ürün yayına alındı, satıcıya bildirildi.'
+          : 'Ürün reddedildi, gerekçe satıcıya bildirildi.'
+      )
+      setRejecting(null)
+      setReason('')
       qc.invalidateQueries({ queryKey: ['product-approvals'] })
     },
     onError: (e: Error) => notify(e.message, 'error'),
@@ -138,10 +184,19 @@ export default function ProductApprovals() {
     actionMutation.mutate({ id: p.id, action: 'publish' })
   }
 
-  function handleReject(p: ApprovalProduct) {
-    if (window.confirm(`"${p.title}" ürününü reddetmek istediğinize emin misiniz?`)) {
-      actionMutation.mutate({ id: p.id, action: 'reject' })
+  function openReject(p: ApprovalProduct) {
+    setRejecting(p)
+    setReason('')
+  }
+
+  function confirmReject() {
+    if (!rejecting) return
+    const trimmed = reason.trim()
+    if (!trimmed) {
+      notify('Satıcının ne düzelteceğini bilmesi için gerekçe yazın.', 'error')
+      return
     }
+    actionMutation.mutate({ id: rejecting.id, action: 'reject', reason: trimmed })
   }
 
   return (
@@ -217,6 +272,7 @@ export default function ProductApprovals() {
                               <div style={{ fontWeight: 600 }}>{p.title}</div>
                               <div className="muted" style={{ fontSize: '0.76rem' }}>{p.handle}</div>
                               <ProductAiInfo metadata={p.metadata} />
+                              <RejectionInfo metadata={p.metadata} />
                             </div>
                           </div>
                         </td>
@@ -264,7 +320,7 @@ export default function ProductApprovals() {
                                 style={{ color: 'var(--accent-danger)' }}
                                 title="Reddet"
                                 disabled={actionMutation.isPending}
-                                onClick={() => handleReject(p)}
+                                onClick={() => openReject(p)}
                               >
                                 <X size={14} /> Reddet
                               </button>
@@ -281,6 +337,49 @@ export default function ProductApprovals() {
           </>
         )}
       </div>
+
+      {rejecting && (
+        <Modal
+          title="Ürünü Reddet"
+          onClose={() => setRejecting(null)}
+          footer={
+            <>
+              <button className="btn btn--secondary" onClick={() => setRejecting(null)}>
+                Vazgeç
+              </button>
+              <button
+                className="btn btn--primary"
+                style={{ background: 'var(--accent-danger)' }}
+                disabled={actionMutation.isPending || !reason.trim()}
+                onClick={confirmReject}
+              >
+                {actionMutation.isPending ? 'Reddediliyor...' : 'Reddet ve Bildir'}
+              </button>
+            </>
+          }
+        >
+          <p style={{ marginBottom: 12, fontSize: '0.9rem' }}>
+            <b>{rejecting.title}</b> ürünü reddedilecek.
+          </p>
+          <label htmlFor="reject-reason" style={{ display: 'block', marginBottom: 6, fontSize: '0.85rem', fontWeight: 600 }}>
+            Red gerekçesi
+          </label>
+          <textarea
+            id="reject-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={4}
+            maxLength={1000}
+            autoFocus
+            placeholder="Örn. Ürün görselleri bulanık ve marka etiketi okunmuyor. Net görseller yükleyip tekrar gönderin."
+            style={{ width: '100%', resize: 'vertical' }}
+          />
+          <p className="muted" style={{ marginTop: 8, fontSize: '0.78rem', lineHeight: 1.5 }}>
+            Gerekçe satıcıya bildirim olarak iletilir ve ürün düzenleme ekranında gösterilir.
+            Satıcı ürünü düzeltip kaydettiğinde ürün yeniden onay kuyruğuna düşer.
+          </p>
+        </Modal>
+      )}
     </>
   )
 }
