@@ -8,7 +8,7 @@ import { ErrorState } from '../../components/ui/StateBox'
 import { useToast } from '../../components/ui/toast-context'
 import { api } from '../../lib/api'
 import { formatMoney } from '../../lib/format'
-import type { StatusMeta } from '../../lib/statusLabels'
+import { sellerOrderStage, type StatusMeta } from '../../lib/statusLabels'
 import type { SellerOrderRow, PayoutSummary } from './seller-detail-types'
 import { Kpi } from './seller-detail-ui'
 
@@ -18,11 +18,6 @@ function payoutBadge(status: string): StatusMeta {
   if (status === 'paid') return { label: 'Ödendi', variant: 'success' }
   if (status === 'eligible') return { label: 'Ödenebilir', variant: 'info' }
   return { label: 'Hakediş Bekliyor', variant: 'warning' }
-}
-function fulfillBadge(status: string): StatusMeta {
-  if (status === 'fulfilled') return { label: 'Kargolandı', variant: 'success' }
-  if (status === 'canceled') return { label: 'İptal', variant: 'danger' }
-  return { label: 'Hazırlanıyor', variant: 'warning' }
 }
 
 export function OrdersTab({ sellerId, sellerName }: { sellerId: string; sellerName: string }) {
@@ -110,7 +105,7 @@ export function OrdersTab({ sellerId, sellerName }: { sellerId: string; sellerNa
                       <td className="nowrap">{formatMoney(o.commission_amount, o.currency_code)}</td>
                       <td className="nowrap" style={{ fontWeight: 600 }}>{formatMoney(o.seller_earning, o.currency_code)}</td>
                       <td>
-                        <Badge status={fulfillBadge(o.fulfillment_status)} />
+                        <Badge status={sellerOrderStage(o)} />
                         {o.tracking_number && (
                           <div style={{ fontSize: '0.75rem', marginTop: 4 }}>
                             <span className="muted">{o.carrier ? `${o.carrier}: ` : ''}{o.tracking_number}</span>

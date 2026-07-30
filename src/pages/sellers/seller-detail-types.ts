@@ -81,6 +81,10 @@ export interface SellerOrderRow {
   item_count: number
   fulfillment_status: string
   payout_status: string
+  /** "Hazırlanıyor" damgası — fulfillment_status ile birlikte aşamayı verir
+   *  (bkz. lib/statusLabels.sellerOrderStage). */
+  preparing_at?: string | null
+  fulfilled_at?: string | null
   carrier: string | null
   tracking_number: string | null
   tracking_url: string | null

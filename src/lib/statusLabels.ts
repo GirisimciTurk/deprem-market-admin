@@ -112,4 +112,22 @@ export const servicePaymentStatus = (s?: string) => lookup(SERVICE_PAYMENT_STATU
 export const serviceOfferDecision = (s?: string) => lookup(SERVICE_OFFER_DECISION, s)
 export const servicePayoutStatus = (s?: string) => lookup(SERVICE_PAYOUT_STATUS, s)
 
+/**
+ * Satıcı alt-siparişinin 4 aşamalı takip aşaması — müşterinin gördüğüyle aynı dil.
+ * Backend'deki src/lib/order-stage.ts ile AYNI mantık; değiştirirken ikisini
+ * birlikte değiştirin. Daha önce seller-orders-tab.tsx ve Sellers.tsx içinde iki
+ * ayrı kopya vardı ve ikisi de yalnız ham enum'a bakıp "Hazırlanıyor" ile
+ * "Sipariş Alındı"yı ayırt edemiyordu.
+ */
+export const sellerOrderStage = (o: {
+  fulfillment_status?: string | null
+  preparing_at?: string | null
+}): StatusMeta => {
+  if (o.fulfillment_status === 'canceled') return { label: 'İptal', variant: 'danger' }
+  if (o.fulfillment_status === 'fulfilled')
+    return { label: 'Kargoya Verildi', variant: 'success' }
+  if (o.preparing_at) return { label: 'Hazırlanıyor', variant: 'warning' }
+  return { label: 'Sipariş Alındı', variant: 'neutral' }
+}
+
 export type { BadgeVariant, StatusMeta }

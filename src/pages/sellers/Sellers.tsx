@@ -26,7 +26,7 @@ import { useToast } from '../../components/ui/toast-context'
 import { useDebounce } from '../../lib/useDebounce'
 import { api } from '../../lib/api'
 import { formatMoney } from '../../lib/format'
-import type { StatusMeta } from '../../lib/statusLabels'
+import { sellerOrderStage, type StatusMeta } from '../../lib/statusLabels'
 
 const LIMIT = 20
 
@@ -492,11 +492,6 @@ function payoutStatusBadge(status: string): StatusMeta {
   return { label: 'Hakediş Bekliyor', variant: 'warning' }
 }
 
-function fulfillmentStatusBadge(status: string): StatusMeta {
-  if (status === 'fulfilled') return { label: 'Kargolandı', variant: 'success' }
-  if (status === 'canceled') return { label: 'İptal', variant: 'danger' }
-  return { label: 'Hazırlanıyor', variant: 'warning' }
-}
 
 function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void }) {
   const { notify } = useToast()
@@ -647,7 +642,7 @@ function PayoutModal({ seller, onClose }: { seller: Seller; onClose: () => void 
                     <td className="nowrap">{formatMoney(o.commission_amount, o.currency_code)}</td>
                     <td className="nowrap" style={{ fontWeight: 600 }}>{formatMoney(o.seller_earning, o.currency_code)}</td>
                     <td>
-                      <Badge status={fulfillmentStatusBadge(o.fulfillment_status)} />
+                      <Badge status={sellerOrderStage(o)} />
                       {o.tracking_number && (
                         <div style={{ fontSize: '0.75rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                           {o.carrier && <CarrierLogo code={o.carrier} height={14} />}
