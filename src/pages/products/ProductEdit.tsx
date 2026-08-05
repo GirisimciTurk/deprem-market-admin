@@ -799,7 +799,7 @@ export default function ProductEdit() {
                                 setGeneralForm({ ...generalForm, thumbnail: data.files[0].url })
                                 notify("Ana görsel başarıyla yüklendi ve WebP'ye dönüştürüldü.")
                               }
-                            } catch (err: any) {
+                            } catch {
                               notify('Görsel yüklenirken bir hata oluştu.', 'error')
                             } finally {
                               setIsUploading(false)
