@@ -19,14 +19,14 @@ type Cert = {
 export default function CertificationsManager({ productId }: { productId?: string }) {
   const { notify } = useToast()
   const [certs, setCerts] = useState<Cert[]>([])
-  const [loading, setLoading] = useState(true)
+  // Başlangıç değeri productId'den TÜRETİLİYOR: ürün yoksa yüklenecek bir şey de
+  // yok. Önceden `true` başlayıp effect'in ilk satırında senkron setLoading(false)
+  // çağrılıyordu — gereksiz bir ekstra render turu (react-hooks/set-state-in-effect).
+  const [loading, setLoading] = useState(Boolean(productId))
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    if (!productId) {
-      setLoading(false)
-      return
-    }
+    if (!productId) return
     let active = true
     api
       .get<{ certifications: any[] }>(`/admin/products/${productId}/certifications`)
